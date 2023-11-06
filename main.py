@@ -102,18 +102,18 @@ class Parallelepiped:
         size_y = int(w / h_w) + 1
         size_z = int(h / h_h) + 1
 
-        x = x0 + np.linspace(-lg / 2, lg / 2, size_x)
-        y = y0 + np.linspace(-w / 2, w / 2, size_y)
+        x = np.linspace(-lg / 2, lg / 2, size_x)
+        y = np.linspace(-w / 2, w / 2, size_y)
         z = z0 + np.linspace(0, h, size_z)
 
-        k1 = np.linspace(1, lg2 / lg, size_z)
-        k2 = np.linspace(1, w2 / w, size_z)
+        k1 = np.linspace(lg2 / lg, 1, size_z)
+        k2 = np.linspace(w2 / w, 1, size_z)
 
         x, y = np.meshgrid(x, y)
         _, zz = np.meshgrid(x, z)
 
-        xx = np.outer(k1, x).flatten()
-        yy = np.outer(k2, y).flatten()
+        xx = x0 + np.outer(k1, x).flatten()
+        yy = y0 + np.outer(k2, y).flatten()
         zz = zz.flatten()
 
         self.data = Geometry(Axe(xx, size_x), Axe(yy, size_y), Axe(zz, size_z))
@@ -195,7 +195,7 @@ class Cylinder:
         size_y = a.shape[0]
         size_z = int(h / h_h) + 1
 
-        k = np.linspace(1, r2 / r1, size_z)
+        k = np.linspace(r2 / r1, 1, size_z)
 
         x = x1.flatten()
         y = (b * np.sqrt(1 - np.power(x1, 2).T / a)).T.flatten()
@@ -238,7 +238,12 @@ H2 = 5
 H_R = 0.2
 H_H = 0.1
 
-# c1 = Cylinder(R, H, x0=10, y0=10, h_r=0.1)
+cn1 = Cylinder(r1=R1, r2=R2, h=H1, x0=10, y0=10, h_r=0.2)
+c1 = Cylinder(r1=R1, h=H2, x0=10, y0=10, z0=H1, h_r=0.2)
+
+cn1.to_vtk('cone')
+c1.to_vtk('cylinder')
+
 # c2 = Cylinder(R, H, x0=10, y0=-10)
 # c3 = Cylinder(R, H, x0=-10, y0=-10)
 # c4 = Cylinder(R, H, x0=-10, y0=10)
@@ -253,6 +258,3 @@ H_H = 0.1
 #
 # r1 = Ring(5, 10, 1)
 # r1.to_vtk('ring')
-
-cn1 = Cylinder(r1=5, r2=10, h=5, h_r=0.2)
-cn1.to_vtk('cone')
