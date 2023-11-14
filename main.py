@@ -1,4 +1,5 @@
 import subprocess
+from pathlib import Path
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -10,14 +11,18 @@ betta = 0.4
 class Axe:
     data: np.array
     size: int
-    path: str
+    path: str | None
 
-    def __init__(self, data: np.array, size: int, path: str = ''):
+    def __init__(self, data: np.array, size: int):
         if len(data.shape) > 1:
             raise Exception(f"Неправильная размерность: {data.shape}")
         self.data = data
         self.size = size
-        self.path = path
+        self.path = None
+
+    def save(self, filename: str):
+        self.path = filename
+        self.data.astype('f').tofile(filename)
 
 
 class Impulse:
@@ -37,15 +42,16 @@ class Geometry:
     x: Axe
     y: Axe
     z: Axe
+    filename: str
     impulse: None | Impulse
-    filename: None | str
+    bins_dir = 'bins/'
+    configs_dir = 'configs/'
+    interp_dir = 'interpolation/'
+    interp_cfg_dir = 'configs/'
 
-    def __init__(self, x: Axe, y: Axe, z: Axe, filename_bin='', impulse=None, filename=None):
+    def __init__(self, x: Axe, y: Axe, z: Axe, filename: str, impulse=None):
         if x.data.shape != y.data.shape or z.data.shape != y.data.shape:
             raise Exception("Не согласующиеся длины")
-        x.path = f'bins/x{filename_bin}'
-        y.path = f'bins/y{filename_bin}'
-        z.path = f'bins/z{filename_bin}'
         self.x = x
         self.y = y
         self.z = z
@@ -58,7 +64,8 @@ class Geometry:
         return Geometry(
             Axe(np.append(self.x.data, obj.x.data), self.x.size + obj.x.size),
             Axe(np.append(self.y.data, obj.y.data), self.y.size + obj.y.size),
-            Axe(np.append(self.z.data, obj.z.data), self.z.size + obj.z.size)
+            Axe(np.append(self.z.data, obj.z.data), self.z.size + obj.z.size),
+            self.filename
         )
 
     def show(self, lim=False):
@@ -72,23 +79,22 @@ class Geometry:
             ax.set_zlim3d(0, 10)
         plt.show()
 
-    def save(self, filename_bin=''):
-        self.x.data.astype('f').tofile(f'{self.x.path}{filename_bin}.bin')
-        self.y.data.astype('f').tofile(f'{self.y.path}{filename_bin}.bin')
-        self.z.data.astype('f').tofile(f'{self.z.path}{filename_bin}.bin')
+    def save(self, directory=''):
+        path = f'{self.bins_dir}{directory}'
+        Path(path).mkdir(parents=True, exist_ok=True)
+        self.x.save(f'{path}/{self.filename}_x.bin')
+        self.y.save(f'{path}/{self.filename}_y.bin')
+        self.z.save(f'{path}/{self.filename}_z.bin')
 
-    def configure(self, filename: str, filename_bin=''):
-        self.save(filename_bin)
-        self.filename = filename
+    def configure(self, directory=''):
+        self.save(f"{directory}/{self.filename}")
 
-        with open('configs/template.conf') as f:
+        with open(f'{self.configs_dir}template.conf') as f:
             config = f.read()
 
-        args = [filename, self.x.size, self.y.size, self.z.size]
-        if filename_bin is None:
-            args.extend((self.x.path, self.y.path, self.z.path))
-        else:
-            args.extend((f'bins/x{filename_bin}.bin', f'bins/y{filename_bin}.bin', f'bins/z{filename_bin}.bin'))
+        args = [self.filename,
+                self.x.size, self.y.size, self.z.size,
+                self.x.path, self.y.path, self.z.path]
 
         if self.impulse is not None:
             args.append(f"""[corrector]
@@ -110,40 +116,46 @@ class Geometry:
 
         config = config.format(*args)
 
-        with open(f"configs/{filename}.conf", 'w') as f:
+        path = f"{self.configs_dir}{directory}"
+        Path(path).mkdir(parents=True, exist_ok=True)
+
+        with open(f"{path}/{self.filename}.conf", 'w') as f:
             f.write(config)
 
-        # print(f"rect/rect/build/rect configs/{filename}.conf")
-        # proc = subprocess.run(["rect/rect/build/rect", f"configs/{filename}.conf"])
-        # if proc.returncode != 0:
-        #     raise Exception(f"rect/rect/build/rect configs/{filename}.conf failed")
-
-    def sew(self, obj: 'Geometry', ghost_to: str, ghosts: tuple[int, int]) -> tuple[str, str]:
+    def sew(self, obj: 'Geometry', ghost_to: str, ghosts: tuple[int, int], directory='') -> tuple[str, str]:
         if not isinstance(obj, Geometry):
             raise Exception("Неверный тип данных")
         if self.filename is None or obj.filename is None:
             raise Exception("Геометрия не сконфигурирована")
 
-        with open('interpolation/configs/template.cfg') as f:
+        direct = f'"{directory}/"' if directory else directory
+
+        with open(f'{self.interp_dir}{self.interp_cfg_dir}template.cfg') as f:
             config = f.read()
 
-        config = config.format(self.filename, obj.filename, ghosts[0], ghost_to, ghosts[1])
-        filename = f"{self.filename}_{obj.filename}.cfg"
+        config = config.format(self.filename, obj.filename, direct, ghost_to, ghosts[0], ghosts[1])
+        filename = f"{self.filename}_{obj.filename}"
 
-        with open(f"interpolation/configs/{filename}", 'w') as f:
+        path = f"{self.interp_dir}{self.interp_cfg_dir}{directory}"
+        Path(path).mkdir(parents=True, exist_ok=True)
+
+        with open(f"{path}/{filename}.cfg", 'w') as f:
             f.write(config)
 
-        proc = subprocess.run(
-            f"direction=1 interpolation=barycentric rect/rect/build/interpolation interpolation/configs/{filename}",
-            shell=True)
-        if proc.returncode != 0:
-            raise Exception(f"direction=1 interpolation/{filename}.cfg failed")
+        out_path = f"{self.interp_dir}{directory}"
+        Path(out_path).mkdir(parents=True, exist_ok=True)
 
         proc = subprocess.run(
-            f"direction=2 interpolation=barycentric rect/rect/build/interpolation interpolation/configs/{filename}",
+            f"direction=1 interpolation=barycentric rect/rect/build/interpolation {path}/{filename}.cfg",
             shell=True)
         if proc.returncode != 0:
-            raise Exception(f"direction=2 interpolation/{filename}.cfg failed")
+            raise Exception(f"direction=1 {path}/{filename}.cfg failed")
+
+        proc = subprocess.run(
+            f"direction=2 interpolation=barycentric rect/rect/build/interpolation {path}/{filename}.cfg",
+            shell=True)
+        if proc.returncode != 0:
+            raise Exception(f"direction=2 {path}/{filename}.cfg failed")
 
         return self.filename, obj.filename
 
@@ -159,8 +171,6 @@ class Geometry:
             else:
                 new.append(j)
 
-        print(new)
-
         for i in zip(base, new):
             if i[0] < i[1]:
                 raise Exception(f"Неправильная размерность:{i}")
@@ -169,8 +179,10 @@ class Geometry:
 
 class Parallelepiped:
     data: Geometry
+    filename: str
 
-    def __init__(self, lg, w, h, lg2=None, w2=None, h_l=None, h_w=None, h_h=None, x0=0, y0=0, z0=0):
+    def __init__(self, filename: str, lg, w, h, lg2=None, w2=None, h_l=None, h_w=None, h_h=None, x0=0, y0=0, z0=0):
+        self.filename = filename
         if lg2 is None:
             lg2 = lg
         if w2 is None:
@@ -200,25 +212,27 @@ class Parallelepiped:
         yy = y0 + np.outer(k2, y).flatten()
         zz = zz.flatten()
 
-        self.data = Geometry(Axe(xx, size_x), Axe(yy, size_y), Axe(zz, size_z))
+        self.data = Geometry(Axe(xx, size_x), Axe(yy, size_y), Axe(zz, size_z), filename)
 
-    def configure(self, filename: str, filename_bin='_p'):
-        self.data.configure(filename, filename_bin)
+    def configure(self, directory=''):
+        self.data.configure(directory)
 
-    def sew(self, obj: Geometry, ghost_to: str, ghosts: tuple[int, int]) -> tuple[str, str]:
-        return self.data.sew(obj, ghost_to, ghosts)
+    def sew(self, obj: Geometry, ghost_to: str, ghosts: tuple[int, int], directory='') -> tuple[str, str]:
+        return self.data.sew(obj, ghost_to, ghosts, directory)
 
     def show(self, lim=False):
         self.data.show(lim)
 
-    def save(self, filename_bin='_p'):
-        self.data.save(filename_bin)
+    def save(self, directory=''):
+        self.data.save(directory)
 
 
 class Ring:
     data: Geometry
+    filename: str
 
-    def __init__(self, r1, r2, h, h_r=None, h_h=None, x0=0, y0=0, z0=0):
+    def __init__(self, filename: str, r1, r2, h, h_r=None, h_h=None, x0=0, y0=0, z0=0):
+        self.filename = filename
         if h_r is None:
             h_r = alpha * r1
         if h_h is None:
@@ -238,16 +252,16 @@ class Ring:
         xx, _ = np.meshgrid(x, z)
         yy, zz = np.meshgrid(y, z)
 
-        self.data = Geometry(Axe(xx.flatten(), size_x), Axe(yy.flatten(), size_y), Axe(zz.flatten(), size_z))
+        self.data = Geometry(Axe(xx.flatten(), size_x), Axe(yy.flatten(), size_y), Axe(zz.flatten(), size_z), filename)
 
-    def to_vtk(self, filename: str, filename_bin='_r'):
-        self.data.configure(filename, filename_bin)
+    def configure(self, directory=''):
+        self.data.configure(directory)
 
     def show(self, lim=False):
         self.data.show(lim)
 
-    def save(self, filename_bin='_r'):
-        self.data.save(filename_bin)
+    def save(self, directory=''):
+        self.data.save(directory)
 
 
 class Cylinder:
@@ -256,8 +270,12 @@ class Cylinder:
     bottom: Geometry
     right: Geometry
     left: Geometry
+    filename: str
+    path: str | None
 
-    def __init__(self, r1, h, r2=None, h_r=None, h_h=None, x0=0, y0=0, z0=0):
+    def __init__(self, filename: str, r1, h, r2=None, h_r=None, h_h=None, x0=0, y0=0, z0=0):
+        self.filename = filename
+        self.path = None
         if r2 is None:
             r2 = r1
         if h_h is None:
@@ -269,8 +287,9 @@ class Cylinder:
         n = int(2 * m / h_r)
         m2 = r2 / (1 + np.sqrt(2))
 
-        self.center = Parallelepiped(lg=2 * m, w=2 * m, h=h, lg2=2 * m2, w2=2 * m2, h_l=h_r, h_w=h_r, h_h=h_h, x0=x0,
-                                     y0=y0, z0=z0)
+        self.center = Parallelepiped('center', lg=2 * m, w=2 * m, h=h, lg2=2 * m2, w2=2 * m2,
+                                     h_l=h_r, h_w=h_r, h_h=h_h,
+                                     x0=x0, y0=y0, z0=z0)
 
         y1 = m + np.arange(0, (m + h_r / 2) / np.sqrt(2), h_r / np.sqrt(2))
         y2 = m + np.arange(0, (m + h_r / 2) * np.sqrt(2), h_r * np.sqrt(2))
@@ -294,31 +313,37 @@ class Cylinder:
         yy = np.outer(k, y).flatten()
         zz = zz.flatten()
 
-        self.top = Geometry(Axe(x0 + xx, size_x), Axe(y0 + yy, size_y), Axe(zz, size_z))
-        self.right = Geometry(Axe(x0 + yy, size_x), Axe(y0 + xx, size_y), Axe(zz, size_z))
-        self.bottom = Geometry(Axe(x0 - xx, size_x), Axe(y0 - yy, size_y), Axe(zz, size_z))
-        self.left = Geometry(Axe(x0 - yy, size_x), Axe(y0 - xx, size_y), Axe(zz, size_z))
+        self.top = Geometry(Axe(x0 + xx, size_x), Axe(y0 + yy, size_y), Axe(zz, size_z), 'top')
+        self.right = Geometry(Axe(x0 + yy, size_x), Axe(y0 + xx, size_y), Axe(zz, size_z), 'right')
+        self.bottom = Geometry(Axe(x0 - xx, size_x), Axe(y0 - yy, size_y), Axe(zz, size_z), 'bottom')
+        self.left = Geometry(Axe(x0 - yy, size_x), Axe(y0 - xx, size_y), Axe(zz, size_z), 'left')
 
-    def to_vtk(self, filename: str, filename_bin='_cyl'):
-        self.center.configure(f"{filename}_center", filename_bin=f'{filename_bin}_center')
-        self.top.configure(f"{filename}_top", filename_bin=f'{filename_bin}_top')
-        self.bottom.configure(f"{filename}_bottom", filename_bin=f'{filename_bin}_bottom')
-        self.right.configure(f"{filename}_right", filename_bin=f'{filename_bin}_right')
-        self.left.configure(f"{filename}_left", filename_bin=f'{filename_bin}_left')
+    def configure(self, directory=''):
+        direct = f"{directory}/{self.filename}" if directory else self.filename
 
-        sews = [self.top.sew(self.left, 'X0', ghosts=(0, 1)), self.left.sew(self.bottom, 'X0', ghosts=(0, 1)),
-                self.bottom.sew(self.right, 'X0', ghosts=(0, 1)), self.right.sew(self.top, 'X0', ghosts=(0, 1)),
-                self.center.sew(self.top, 'Y0', ghosts=(1, 0)), self.center.sew(self.left, 'Y0', ghosts=(1, 0)),
-                self.center.sew(self.bottom, 'Y0', ghosts=(1, 0)), self.center.sew(self.right, 'Y0', ghosts=(1, 0))]
+        self.center.configure(direct)
+        self.top.configure(direct)
+        self.bottom.configure(direct)
+        self.right.configure(direct)
+        self.left.configure(direct)
+
+        sews = [self.top.sew(self.left, 'X0', (0, 1), direct),
+                self.left.sew(self.bottom, 'X0', (0, 1), direct),
+                self.bottom.sew(self.right, 'X0', (0, 1), direct),
+                self.right.sew(self.top, 'X0', (0, 1), direct),
+                self.center.sew(self.top, 'Y0', (1, 0), direct),
+                self.center.sew(self.left, 'Y0', (1, 0), direct),
+                self.center.sew(self.bottom, 'Y0', (1, 0), direct),
+                self.center.sew(self.right, 'Y0', (1, 0), direct)]
 
         with open("main_template.conf") as f:
             config = f.read()
 
-        grids = [f'@include("configs/{i.filename}.conf", "grids")' for i in
+        grids = [f'@include("{self.center.data.configs_dir}{direct}/{i.filename}.conf", "grids")' for i in
                  (self.top, self.left, self.bottom, self.right, self.center.data)]
         contacts = [f"""    [contact]
         name = RectGridInterpolationCorrector
-        interpolation_file = interpolation/backward_{main}_{overset}.txt
+        interpolation_file = {self.center.data.interp_dir}{direct}/backward_{main}_{overset}.txt
         grid1 = {overset}
         grid2 = {main}
         predictor_flag = false
@@ -327,7 +352,7 @@ class Cylinder:
     [/contact]
     [contact]
         name = RectGridInterpolationCorrector
-        interpolation_file = interpolation/forward_{main}_{overset}.txt
+        interpolation_file = {self.center.data.interp_dir}{direct}/forward_{main}_{overset}.txt
         grid1 = {main}
         grid2 = {overset}
         predictor_flag = true
@@ -337,13 +362,16 @@ class Cylinder:
 
         config = config.format('\n'.join(grids), '\n'.join(contacts))
 
-        with open(f"{filename}.conf", 'w') as f:
+        self.path = f"{self.center.data.configs_dir}{direct}"
+        Path(self.path).mkdir(parents=True, exist_ok=True)
+
+        with open(f"{self.path}/{self.filename}.conf", 'w') as f:
             f.write(config)
 
-        print(f"rect/rect/build/rect {filename}.conf")
-        proc = subprocess.run(["rect/rect/build/rect", f"{filename}.conf"])
+    def build(self):
+        proc = subprocess.run(["rect/rect/build/rect", f"{self.path}/{self.filename}.conf"])
         if proc.returncode != 0:
-            raise Exception(f"rect/rect/build/rect {filename}.conf failed")
+            raise Exception(f"rect/rect/build/rect {self.path}/{self.filename}.conf failed")
 
     def show(self, lim=False):
         data = self.center.data.extend(self.top).extend(self.right).extend(self.bottom).extend(self.left)
@@ -357,19 +385,19 @@ class Cylinder:
         self.left.save(f"{filename_bin}_left")
 
 
-R1 = 3
-R2 = 5
-H1 = 1
+R1 = 10
+R2 = 15
+H1 = 10
 H2 = 5
 H_R = 0.2
 H_H = 0.1
 
 # cn1 = Cylinder(r1=R1, r2=R2, h=H1, x0=10, y0=10, h_r=0.2)
-c1 = Cylinder(r1=R1, h=H2, x0=10, y0=10, z0=H1, h_r=0.1, h_h=0.1)
+c1 = Cylinder('C1', r1=R1, h=H2, x0=10, y0=10, z0=H1, h_r=0.35, h_h=0.35)
 c1.center.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.9)
 
-# cn1.to_vtk('cone')
-c1.to_vtk('cylinder')
+c1.configure('test')
+c1.build()
 
 # c2 = Cylinder(R, H, x0=10, y0=-10)
 # c3 = Cylinder(R, H, x0=-10, y0=-10)
@@ -380,8 +408,8 @@ c1.to_vtk('cylinder')
 # c3.to_vtk('cylinder_3')
 # c4.to_vtk('cylinder_4')
 
-# p1 = Parallelepiped(7, 7, 1)
-# p1.to_vtk('parallelepiped')
+# p1 = Parallelepiped('P1', 7, 7, 1)
+# p1.configure('test')
 #
 # r1 = Ring(5, 10, 1)
 # r1.to_vtk('ring')
