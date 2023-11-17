@@ -7,6 +7,9 @@ from matplotlib import pyplot as plt
 alpha = 0.2
 betta = 0.4
 
+STDOUT = subprocess.DEVNULL
+STDERR = subprocess.DEVNULL
+
 
 class Axe:
     data: np.array
@@ -44,6 +47,7 @@ class Geometry:
     z: Axe
     filename: str
     impulse: None | Impulse
+    configured: bool
     bins_dir = 'bins/'
     configs_dir = 'configs/'
     interp_dir = 'interpolation/'
@@ -57,6 +61,7 @@ class Geometry:
         self.z = z
         self.impulse = impulse
         self.filename = filename
+        self.configured = False
 
     def extend(self, obj: 'Geometry'):
         if obj.x.data.shape != obj.y.data.shape or obj.z.data.shape != obj.y.data.shape:
@@ -122,40 +127,51 @@ class Geometry:
         with open(f"{path}/{self.filename}.conf", 'w') as f:
             f.write(config)
 
-    def sew(self, obj: 'Geometry', ghost_to: str, ghosts: tuple[int, int], directory='') -> tuple[str, str]:
+        self.configured = True
+
+    def sew(self, obj: 'Geometry', ghost_to: str, ghosts: tuple[int, int], directory='', conf_dir1='', conf_dir2=''
+            ) -> tuple[str, str]:
         if not isinstance(obj, Geometry):
             raise Exception("Неверный тип данных")
-        if self.filename is None or obj.filename is None:
+        if not self.configured or not obj.configured:
             raise Exception("Геометрия не сконфигурирована")
 
-        direct = f'"{directory}/"' if directory else directory
+        direct = f'"{directory}/"' if directory else '""'
+        directory = f'{directory}/' if directory else directory
+        conf_dir1 = f'"{directory}{conf_dir1}/"' if conf_dir1 else direct
+        conf_dir2 = f'"{directory}{conf_dir2}/"' if conf_dir2 else direct
 
         with open(f'{self.interp_dir}{self.interp_cfg_dir}template.cfg') as f:
             config = f.read()
 
-        config = config.format(self.filename, obj.filename, direct, ghost_to, ghosts[0], ghosts[1])
+        config = config.format(self.filename, obj.filename,
+                               conf_dir1, conf_dir2, direct,
+                               ghost_to, ghosts[0], ghosts[1])
         filename = f"{self.filename}_{obj.filename}"
 
         path = f"{self.interp_dir}{self.interp_cfg_dir}{directory}"
         Path(path).mkdir(parents=True, exist_ok=True)
 
-        with open(f"{path}/{filename}.cfg", 'w') as f:
+        config_filename = f"{path}{filename}.cfg"
+        with open(config_filename, 'w') as f:
             f.write(config)
 
         out_path = f"{self.interp_dir}{directory}"
         Path(out_path).mkdir(parents=True, exist_ok=True)
 
+        print(f"direction=1 interpolation=barycentric rect/rect/build/interpolation {config_filename}")
         proc = subprocess.run(
-            f"direction=1 interpolation=barycentric rect/rect/build/interpolation {path}/{filename}.cfg",
-            shell=True)
+            f"direction=1 interpolation=barycentric rect/rect/build/interpolation {config_filename}",
+            shell=True, stdout=STDOUT, stderr=STDERR)
         if proc.returncode != 0:
-            raise Exception(f"direction=1 {path}/{filename}.cfg failed")
+            raise Exception(f"direction=1 {config_filename} failed")
 
+        print(f"direction=2 interpolation=barycentric rect/rect/build/interpolation {config_filename}")
         proc = subprocess.run(
-            f"direction=2 interpolation=barycentric rect/rect/build/interpolation {path}/{filename}.cfg",
-            shell=True)
+            f"direction=2 interpolation=barycentric rect/rect/build/interpolation {config_filename}",
+            shell=True, stdout=STDOUT, stderr=STDERR)
         if proc.returncode != 0:
-            raise Exception(f"direction=2 {path}/{filename}.cfg failed")
+            raise Exception(f"direction=2 {config_filename} failed")
 
         return self.filename, obj.filename
 
@@ -180,9 +196,11 @@ class Geometry:
 class Parallelepiped:
     data: Geometry
     filename: str
+    configured: bool
 
     def __init__(self, filename: str, lg, w, h, lg2=None, w2=None, h_l=None, h_w=None, h_h=None, x0=0, y0=0, z0=0):
         self.filename = filename
+        self.configured = False
         if lg2 is None:
             lg2 = lg
         if w2 is None:
@@ -215,10 +233,13 @@ class Parallelepiped:
         self.data = Geometry(Axe(xx, size_x), Axe(yy, size_y), Axe(zz, size_z), filename)
 
     def configure(self, directory=''):
-        self.data.configure(directory)
+        direct = f"{directory}/{self.filename}" if directory else self.filename
+        self.data.configure(direct)
+        self.configured = True
 
-    def sew(self, obj: Geometry, ghost_to: str, ghosts: tuple[int, int], directory='') -> tuple[str, str]:
-        return self.data.sew(obj, ghost_to, ghosts, directory)
+    def sew(self, obj: Geometry, ghost_to: str, ghosts: tuple[int, int], directory='', conf_dir1='', conf_dir2=''
+            ) -> tuple[str, str]:
+        return self.data.sew(obj, ghost_to, ghosts, directory, conf_dir1, conf_dir2)
 
     def show(self, lim=False):
         self.data.show(lim)
@@ -271,10 +292,12 @@ class Cylinder:
     right: Geometry
     left: Geometry
     filename: str
+    configured: bool
     path: str | None
 
     def __init__(self, filename: str, r1, h, r2=None, h_r=None, h_h=None, x0=0, y0=0, z0=0):
         self.filename = filename
+        self.configured = False
         self.path = None
         if r2 is None:
             r2 = r1
@@ -287,7 +310,8 @@ class Cylinder:
         n = int(2 * m / h_r)
         m2 = r2 / (1 + np.sqrt(2))
 
-        self.center = Parallelepiped('center', lg=2 * m, w=2 * m, h=h, lg2=2 * m2, w2=2 * m2,
+        self.center = Parallelepiped(f'{filename}_center',
+                                     lg=2 * m, w=2 * m, h=h, lg2=2 * m2, w2=2 * m2,
                                      h_l=h_r, h_w=h_r, h_h=h_h,
                                      x0=x0, y0=y0, z0=z0)
 
@@ -313,15 +337,15 @@ class Cylinder:
         yy = np.outer(k, y).flatten()
         zz = zz.flatten()
 
-        self.top = Geometry(Axe(x0 + xx, size_x), Axe(y0 + yy, size_y), Axe(zz, size_z), 'top')
-        self.right = Geometry(Axe(x0 + yy, size_x), Axe(y0 + xx, size_y), Axe(zz, size_z), 'right')
-        self.bottom = Geometry(Axe(x0 - xx, size_x), Axe(y0 - yy, size_y), Axe(zz, size_z), 'bottom')
-        self.left = Geometry(Axe(x0 - yy, size_x), Axe(y0 - xx, size_y), Axe(zz, size_z), 'left')
+        self.top = Geometry(Axe(x0 + xx, size_x), Axe(y0 + yy, size_y), Axe(zz, size_z), f'{filename}_top')
+        self.right = Geometry(Axe(x0 + yy, size_x), Axe(y0 + xx, size_y), Axe(zz, size_z), f'{filename}_right')
+        self.bottom = Geometry(Axe(x0 - xx, size_x), Axe(y0 - yy, size_y), Axe(zz, size_z), f'{filename}_bottom')
+        self.left = Geometry(Axe(x0 - yy, size_x), Axe(y0 - xx, size_y), Axe(zz, size_z), f'{filename}_left')
 
     def configure(self, directory=''):
         direct = f"{directory}/{self.filename}" if directory else self.filename
 
-        self.center.configure(direct)
+        self.center.data.configure(direct)
         self.top.configure(direct)
         self.bottom.configure(direct)
         self.right.configure(direct)
@@ -362,16 +386,19 @@ class Cylinder:
 
         config = config.format('\n'.join(grids), '\n'.join(contacts))
 
-        self.path = f"{self.center.data.configs_dir}{direct}"
-        Path(self.path).mkdir(parents=True, exist_ok=True)
+        path = f"{self.center.data.configs_dir}{directory}"
+        Path(path).mkdir(parents=True, exist_ok=True)
 
-        with open(f"{self.path}/{self.filename}.conf", 'w') as f:
+        self.path = f"{path}/{self.filename}.conf"
+        with open(self.path, 'w') as f:
             f.write(config)
 
+        self.configured = True
+
     def build(self):
-        proc = subprocess.run(["rect/rect/build/rect", f"{self.path}/{self.filename}.conf"])
+        proc = subprocess.run(["rect/rect/build/rect", self.path])
         if proc.returncode != 0:
-            raise Exception(f"rect/rect/build/rect {self.path}/{self.filename}.conf failed")
+            raise Exception(f"rect/rect/build/rect {self.path} failed")
 
     def show(self, lim=False):
         data = self.center.data.extend(self.top).extend(self.right).extend(self.bottom).extend(self.left)
@@ -384,20 +411,205 @@ class Cylinder:
         self.bottom.save(f"{filename_bin}_bottom")
         self.left.save(f"{filename_bin}_left")
 
+    def sew_cyl(self, cylinder: 'Cylinder', directory=''):
+        if not self.configured or not cylinder.configured:
+            raise Exception(f"{self.filename} или {cylinder.filename} не сконфигурированы")
+
+        sews = [
+            self.center.sew(cylinder.center.data, 'Z0', (1, 0), directory,
+                            conf_dir1=self.filename, conf_dir2=cylinder.filename),
+            self.top.sew(cylinder.top, 'Z0', (1, 0), directory,
+                         conf_dir1=self.filename, conf_dir2=cylinder.filename),
+            self.right.sew(cylinder.right, 'Z0', (1, 0), directory,
+                           conf_dir1=self.filename, conf_dir2=cylinder.filename),
+            self.bottom.sew(cylinder.bottom, 'Z0', (1, 0), directory,
+                            conf_dir1=self.filename, conf_dir2=cylinder.filename),
+            self.left.sew(cylinder.left, 'Z0', (1, 0), directory,
+                          conf_dir1=self.filename, conf_dir2=cylinder.filename)
+        ]
+        return sews
+
+    def sew_par(self, parallelepiped: Parallelepiped, directory=''):
+        if not self.configured or not parallelepiped.configured:
+            raise Exception(f"{self.filename} или {parallelepiped.filename} не сконфигурированы")
+
+        sews = [
+            self.center.sew(parallelepiped.data, 'Z0', (1, 0), directory,
+                            conf_dir1=self.filename, conf_dir2=parallelepiped.filename),
+            self.top.sew(parallelepiped.data, 'Z0', (1, 0), directory,
+                         conf_dir1=self.filename, conf_dir2=parallelepiped.filename),
+            self.right.sew(parallelepiped.data, 'Z0', (1, 0), directory,
+                           conf_dir1=self.filename, conf_dir2=parallelepiped.filename),
+            self.bottom.sew(parallelepiped.data, 'Z0', (1, 0), directory,
+                            conf_dir1=self.filename, conf_dir2=parallelepiped.filename),
+            self.left.sew(parallelepiped.data, 'Z0', (1, 0), directory,
+                          conf_dir1=self.filename, conf_dir2=parallelepiped.filename)
+        ]
+        return sews
+
+
+class Column:
+    cylinders: list[Cylinder]
+    filename: str
+    configured: bool
+    path: str | None
+
+    def __init__(self, filename: str, *cylinders: Cylinder):
+        self.configured = False
+        self.path = None
+        self.filename = filename
+        self.cylinders = list(cylinders)
+
+    def configure(self, directory=''):
+        direct = f"{directory}/{self.filename}" if directory else self.filename
+
+        for i in self.cylinders:
+            i.configure(direct)
+
+        sews = []
+
+        for i in range(len(self.cylinders) - 1):
+            sews.extend(
+                self.cylinders[i].sew_cyl(self.cylinders[i + 1], direct)
+            )
+
+        with open("main_template.conf") as f:
+            config = f.read()
+
+        grids = [f'@include("{self.cylinders[0].center.data.configs_dir}{direct}/{i.filename}.conf", "grids")' for i in
+                 self.cylinders]
+        contacts = [f"""    [contact]
+        name = RectGridInterpolationCorrector
+        interpolation_file = {self.cylinders[0].center.data.interp_dir}{direct}/backward_{main}_{overset}.txt
+        grid1 = {overset}
+        grid2 = {main}
+        predictor_flag = false
+        corrector_flag = true
+        axis = 1
+    [/contact]
+    [contact]
+        name = RectGridInterpolationCorrector
+        interpolation_file = {self.cylinders[0].center.data.interp_dir}{direct}/forward_{main}_{overset}.txt
+        grid1 = {main}
+        grid2 = {overset}
+        predictor_flag = true
+        corrector_flag = false
+        axis = 1
+    [/contact]""" for main, overset in sews]
+        old_contacts = [f'@include("{self.cylinders[0].center.data.configs_dir}{direct}/{i.filename}.conf", "contacts")'
+                        for i in self.cylinders]
+        contacts.extend(old_contacts)
+
+        config = config.format('\n'.join(grids), '\n'.join(contacts))
+
+        path = f"{self.cylinders[0].center.data.configs_dir}{directory}"
+        Path(path).mkdir(parents=True, exist_ok=True)
+
+        self.path = f"{path}/{self.filename}.conf"
+        with open(self.path, 'w') as f:
+            f.write(config)
+
+        self.configured = True
+
+    def build(self):
+        proc = subprocess.run(["rect/rect/build/rect", self.path])
+        if proc.returncode != 0:
+            raise Exception(f"rect/rect/build/rect {self.path} failed")
+
+
+class Platform:
+    main: Parallelepiped
+    column: Cylinder
+    filename: str
+    configured: bool
+    path: str | None
+
+    def __init__(self, filename: str, main: Parallelepiped, column: Cylinder):
+        self.configured = False
+        self.path = None
+        self.filename = filename
+        self.main = main
+        self.column = column
+
+    def configure(self, directory=''):
+        direct = f"{directory}/{self.filename}" if directory else self.filename
+
+        self.main.configure(direct)
+        self.column.configure(direct)
+
+        sews = self.column.sew_par(self.main, direct)
+
+        with open("main_template.conf") as f:
+            config = f.read()
+
+        grids = [f'@include("{self.main.data.configs_dir}{direct}/{i.filename}.conf", "grids")' for i in
+                 (self.main, self.column)]
+        contacts = [f"""    [contact]
+                name = RectGridInterpolationCorrector
+                interpolation_file = {self.main.data.interp_dir}{direct}/backward_{main}_{overset}.txt
+                grid1 = {overset}
+                grid2 = {main}
+                predictor_flag = false
+                corrector_flag = true
+                axis = 1
+            [/contact]
+            [contact]
+                name = RectGridInterpolationCorrector
+                interpolation_file = {self.main.data.interp_dir}{direct}/forward_{main}_{overset}.txt
+                grid1 = {main}
+                grid2 = {overset}
+                predictor_flag = true
+                corrector_flag = false
+                axis = 1
+            [/contact]""" for main, overset in sews]
+        old_contacts = [f'@include("{self.main.data.configs_dir}{direct}/{i.filename}.conf", "contacts")'
+                        for i in (self.main, self.column)]
+        contacts.extend(old_contacts)
+
+        config = config.format('\n'.join(grids), '\n'.join(contacts))
+
+        path = f"{self.main.data.configs_dir}{directory}"
+        Path(path).mkdir(parents=True, exist_ok=True)
+
+        self.path = f"{path}/{self.filename}.conf"
+        with open(self.path, 'w') as f:
+            f.write(config)
+
+        self.configured = True
+
+    def build(self):
+        proc = subprocess.run(["rect/rect/build/rect", self.path])
+        if proc.returncode != 0:
+            raise Exception(f"rect/rect/build/rect {self.path} failed")
 
 R1 = 10
 R2 = 15
-H1 = 10
-H2 = 5
-H_R = 0.2
-H_H = 0.1
+H1 = 20
+H2 = 40
+H_R = 0.35
+H_H = 0.35
 
-# cn1 = Cylinder(r1=R1, r2=R2, h=H1, x0=10, y0=10, h_r=0.2)
-c1 = Cylinder('C1', r1=R1, h=H2, x0=10, y0=10, z0=H1, h_r=0.35, h_h=0.35)
-c1.center.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.9)
+# c1 = Cylinder('C1', r1=R1, r2=R2, h=H1, z0=0, h_r=H_R, h_h=H_H)
+# c2 = Cylinder('C2', r1=R1, h=H2, z0=H1, h_r=H_R, h_h=H_H)
+#
+# c1.center.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.1)
+#
+# o1 = Column('opora_3', c1, c2)
+# o1.configure()
+# o1.build()
 
-c1.configure('test')
-c1.build()
+c1 = Cylinder('C1', r1=R1, r2=R2, h=H1, z0=0, h_r=H_R, h_h=H_H)
+p1 = Parallelepiped('P1', 20, 20, 10, h_l=H_R, h_w=H_R, h_h=H_H)
+
+pl1 = Platform('pl1', p1, c1)
+
+pl1.configure()
+pl1.build()
+
+
+
+# c1.configure()
+# c1.build()
 
 # c2 = Cylinder(R, H, x0=10, y0=-10)
 # c3 = Cylinder(R, H, x0=-10, y0=-10)
