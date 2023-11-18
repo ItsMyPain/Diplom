@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+from typing import Sequence
 
 import numpy as np
 
@@ -22,6 +23,42 @@ class Base:
     def _sew(self, obj):
         if not self.configured or not obj.configured:
             raise Exception(f"Не конфигурирован: {self.filename}")
+
+    def _save_new_config(self, configs: Sequence, sews: list[tuple], directory: str):
+        grids = [f'@include("{i.path}", "grids")' for i in configs]
+        contacts = [f"""    [contact]
+            name = RectGridInterpolationCorrector
+            interpolation_file = {output2}
+            grid1 = {overset}
+            grid2 = {main}
+            predictor_flag = false
+            corrector_flag = true
+            axis = 1
+        [/contact]
+        [contact]
+            name = RectGridInterpolationCorrector
+            interpolation_file = {output1}
+            grid1 = {main}
+            grid2 = {overset}
+            predictor_flag = true
+            corrector_flag = false
+            axis = 1
+        [/contact]""" for main, overset, output1, output2 in sews]
+
+        old_contacts = [f'@include("{i.path}", "contacts")' for i in configs]
+        contacts.extend(old_contacts)
+
+        with open("main_template.conf") as f:
+            config = f.read()
+
+        config = config.format('\n'.join(grids), '\n'.join(contacts))
+
+        path = f"{CONFIGS_DIR}/{directory}" if directory else CONFIGS_DIR
+        Path(path).mkdir(parents=True, exist_ok=True)
+        self.path = f"{path}/{self.filename}.conf"
+
+        with open(self.path, 'w') as f:
+            f.write(config)
 
     def build(self):
         if not self.configured:
@@ -150,42 +187,7 @@ class Cylinder(Base):
                 self.center.sew_geom(self.bottom, 'Y0', (1, 0), direct),
                 self.center.sew_geom(self.right, 'Y0', (1, 0), direct)]
 
-        grids = [f'@include("{i.path}", "grids")' for i in
-                 (self.top, self.left, self.bottom, self.right, self.center)]
-        contacts = [f"""    [contact]
-        name = RectGridInterpolationCorrector
-        interpolation_file = {output2}
-        grid1 = {overset}
-        grid2 = {main}
-        predictor_flag = false
-        corrector_flag = true
-        axis = 1
-    [/contact]
-    [contact]
-        name = RectGridInterpolationCorrector
-        interpolation_file = {output1}
-        grid1 = {main}
-        grid2 = {overset}
-        predictor_flag = true
-        corrector_flag = false
-        axis = 1
-    [/contact]""" for main, overset, output1, output2 in sews]
-
-        old_contacts = [f'@include("{i.path}", "contacts")' for i in
-                        (self.top, self.left, self.bottom, self.right, self.center)]
-        contacts.extend(old_contacts)
-
-        with open("main_template.conf") as f:
-            config = f.read()
-
-        config = config.format('\n'.join(grids), '\n'.join(contacts))
-
-        path = f"{CONFIGS_DIR}/{directory}" if directory else CONFIGS_DIR
-        Path(path).mkdir(parents=True, exist_ok=True)
-        self.path = f"{path}/{self.filename}.conf"
-
-        with open(self.path, 'w') as f:
-            f.write(config)
+        self._save_new_config((self.top, self.left, self.bottom, self.right, self.center), sews, directory)
 
         self.configured = True
 
@@ -214,9 +216,26 @@ class Cylinder(Base):
         ]
 
 
-class Column:
+class Column(Base):
     cylinders: list[Cylinder]
 
     def __init__(self, filename: str, *cylinders: Cylinder):
+        super().__init__(filename)
         self.cylinders = list(cylinders)
-        self.filename = filename
+
+    def configure(self, directory=''):
+        direct = f"{directory}/{self.filename}" if directory else self.filename
+
+        for i in self.cylinders:
+            i.configure(direct)
+
+        sews = []
+
+        for i in range(len(self.cylinders) - 1):
+            sews.extend(
+                self.cylinders[i].sew_cyl(self.cylinders[i + 1], direct)
+            )
+
+        self._save_new_config(self.cylinders, sews, directory)
+
+        self.configured = True
