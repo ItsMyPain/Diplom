@@ -27,23 +27,23 @@ class Base:
     def _save_new_config(self, configs: Sequence, sews: list[tuple], directory: str):
         grids = [f'@include("{i.path}", "grids")' for i in configs]
         contacts = [f"""    [contact]
-            name = RectGridInterpolationCorrector
-            interpolation_file = {output2}
-            grid1 = {overset}
-            grid2 = {main}
-            predictor_flag = false
-            corrector_flag = true
-            axis = 1
-        [/contact]
-        [contact]
-            name = RectGridInterpolationCorrector
-            interpolation_file = {output1}
-            grid1 = {main}
-            grid2 = {overset}
-            predictor_flag = true
-            corrector_flag = false
-            axis = 1
-        [/contact]""" for main, overset, output1, output2 in sews]
+        name = RectGridInterpolationCorrector
+        interpolation_file = {output2}
+        grid1 = {overset}
+        grid2 = {main}
+        predictor_flag = false
+        corrector_flag = true
+        axis = 1
+    [/contact]
+    [contact]
+        name = RectGridInterpolationCorrector
+        interpolation_file = {output1}
+        grid1 = {main}
+        grid2 = {overset}
+        predictor_flag = true
+        corrector_flag = false
+        axis = 1
+    [/contact]""" for main, overset, output1, output2 in sews]
 
         old_contacts = [f'@include("{i.path}", "contacts")' for i in configs]
         contacts.extend(old_contacts)
@@ -74,7 +74,8 @@ class Base:
 class Parallelepiped(Base):
     data: Geometry
 
-    def __init__(self, filename: str, lg, w, h, lg2=None, w2=None, h_l=None, h_w=None, h_h=None, x0=0, y0=0, z0=0):
+    def __init__(self, filename: str, lg, w, h, lg2=None, w2=None, h_l=None, h_w=None, h_h=None, x0=0.0, y0=0.0,
+                 z0=0.0):
         super().__init__(filename)
         if lg2 is None:
             lg2 = lg
@@ -87,8 +88,8 @@ class Parallelepiped(Base):
         if h_h is None:
             h_h = alpha * h
 
-        size_x = int(lg / h_l) + 1
-        size_y = int(w / h_w) + 1
+        size_x = int(min(lg, lg2) / h_l) + 1
+        size_y = int(min(w, w2) / h_w) + 1
         size_z = int(h / h_h) + 1
 
         x = np.linspace(-lg / 2, lg / 2, size_x)
@@ -117,6 +118,39 @@ class Parallelepiped(Base):
         return self.data.sew(obj, ghost_to, ghosts, f"{directory}/{self.filename}" if directory else self.filename)
 
 
+class Ring(Base):
+    data: Geometry
+
+    def __init__(self, filename: str, r1, r2, h, h_r=None, h_h=None, x0=0, y0=0, z0=0):
+        super().__init__(filename)
+        if h_r is None:
+            h_r = alpha * r1
+        if h_h is None:
+            h_h = alpha * h
+
+        size_x = int(2 * np.pi * r2 / h_r) + 1
+        size_y = int(r2 / h_r) + 1
+        size_z = int(h / h_h) + 1
+
+        fi = np.linspace(-np.pi, np.pi, size_x)
+        r = np.linspace(r1, r2, size_y)
+
+        x = x0 + np.outer(r, np.cos(fi)).flatten()
+        y = y0 + np.outer(r, np.sin(fi)).flatten()
+        z = z0 + np.linspace(0, h, size_z)
+
+        xx, _ = np.meshgrid(x, z)
+        yy, zz = np.meshgrid(y, z)
+
+        self.data = Geometry(Axe(xx.flatten(), size_x), Axe(yy.flatten(), size_y), Axe(zz.flatten(), size_z),
+                             f'{filename}_data')
+
+    def configure(self, directory=''):
+        self.data.configure(f"{directory}/{self.filename}" if directory else self.filename)
+        self.path = self.data.path
+        self.configured = True
+
+
 class Cylinder(Base):
     center: Parallelepiped
     top: Geometry
@@ -124,7 +158,7 @@ class Cylinder(Base):
     right: Geometry
     left: Geometry
 
-    def __init__(self, filename: str, r1, h, r2=None, h_r=None, h_h=None, x0=0, y0=0, z0=0):
+    def __init__(self, filename: str, r1, h, r2=None, h_r=None, h_h=None, x0=0.0, y0=0.0, z0=0.0):
         super().__init__(filename)
         if r2 is None:
             r2 = r1
@@ -133,12 +167,13 @@ class Cylinder(Base):
         if h_r is None:
             h_r = alpha * r1
 
-        m = r1 / (1 + np.sqrt(2))
-        n = int(2 * m / h_r)
+        m1 = r1 / (1 + np.sqrt(2))
         m2 = r2 / (1 + np.sqrt(2))
+        m = min(m1, m2)
+        n = int(2 * m / h_r)
 
         self.center = Parallelepiped(f'{filename}_center',
-                                     lg=2 * m, w=2 * m, h=h, lg2=2 * m2, w2=2 * m2,
+                                     lg=2 * m1, w=2 * m1, h=h, lg2=2 * m2, w2=2 * m2,
                                      h_l=h_r, h_w=h_r, h_h=h_h,
                                      x0=x0, y0=y0, z0=z0)
 
@@ -152,7 +187,10 @@ class Cylinder(Base):
         size_y = a.shape[0]
         size_z = int(h / h_h) + 1
 
-        k = np.linspace(r2 / r1, 1, size_z)
+        if r2 >= r1:
+            k = np.linspace(r2 / r1, 1, size_z)
+        else:
+            k = np.linspace(1, r1 / r2, size_z)
 
         x = x1.flatten()
         y = (b * np.sqrt(1 - np.power(x1, 2).T / a)).T.flatten()
@@ -185,7 +223,8 @@ class Cylinder(Base):
                 self.center.sew_geom(self.top, 'Y0', (1, 0), direct),
                 self.center.sew_geom(self.left, 'Y0', (1, 0), direct),
                 self.center.sew_geom(self.bottom, 'Y0', (1, 0), direct),
-                self.center.sew_geom(self.right, 'Y0', (1, 0), direct)]
+                self.center.sew_geom(self.right, 'Y0', (1, 0), direct)
+                ]
 
         self._save_new_config((self.top, self.left, self.bottom, self.right, self.center), sews, directory)
 
@@ -208,20 +247,25 @@ class Cylinder(Base):
         direct = f"{directory}/{self.filename}" if directory else self.filename
 
         return [
-            self.center.sew_geom(parallelepiped.data, 'Z0', (1, 0), direct),
-            self.top.sew(parallelepiped.data, 'Z0', (1, 0), direct),
-            self.right.sew(parallelepiped.data, 'Z0', (1, 0), direct),
-            self.bottom.sew(parallelepiped.data, 'Z0', (1, 0), direct),
-            self.left.sew(parallelepiped.data, 'Z0', (1, 0), direct)
+            self.center.sew_geom(parallelepiped.data, 'Z0', (1, 1), direct),
+            self.top.sew(parallelepiped.data, 'Z0', (1, 1), direct),
+            self.right.sew(parallelepiped.data, 'Z0', (1, 1), direct),
+            self.bottom.sew(parallelepiped.data, 'Z0', (1, 1), direct),
+            self.left.sew(parallelepiped.data, 'Z0', (1, 1), direct)
         ]
 
 
 class Column(Base):
     cylinders: list[Cylinder]
 
-    def __init__(self, filename: str, *cylinders: Cylinder):
+    def __init__(self, filename: str, parts: list[tuple], origin: tuple, h_r: float, h_h: float):
         super().__init__(filename)
-        self.cylinders = list(cylinders)
+        z = origin[2]
+        self.cylinders = []
+        for n, i in enumerate(parts):
+            self.cylinders.append(Cylinder(filename=f'{filename}_cyl_{n}', r1=i[1], r2=i[0], h=i[2], h_r=h_r, h_h=h_h,
+                                           x0=origin[0], y0=origin[1], z0=z))
+            z += i[2]
 
     def configure(self, directory=''):
         direct = f"{directory}/{self.filename}" if directory else self.filename
@@ -237,5 +281,34 @@ class Column(Base):
             )
 
         self._save_new_config(self.cylinders, sews, directory)
+
+        self.configured = True
+
+
+class Platform(Base):
+    main: Parallelepiped
+    columns: list[Column]
+    pos: int
+
+    def __init__(self, filename: str, main: Parallelepiped, *columns: Column, pos=-1):
+        super().__init__(filename)
+        self.main = main
+        self.columns = list(columns)
+        self.pos = pos
+
+    def configure(self, directory=''):
+        direct = f"{directory}/{self.filename}" if directory else self.filename
+
+        self.main.configure(direct)
+
+        for i in self.columns:
+            i.configure(direct)
+
+        sews = []
+
+        for i in self.columns:
+            sews.extend(i.cylinders[self.pos].sew_par(self.main, direct))
+
+        self._save_new_config((self.main, *self.columns), sews, directory)
 
         self.configured = True

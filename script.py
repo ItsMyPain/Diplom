@@ -1,24 +1,34 @@
+import os
+
 from objects import *
 
-R1 = 10
-R2 = 15
-H1 = 20
-H2 = 40
 H_R = 0.35
 H_H = 0.35
 
-# p1 = Parallelepiped('p1', lg=10, w=10, h=10, h_l=H_R, h_w=H_R, h_h=H_H)
-# p1.configure()
-# p1.build()
+R_bottom_cyl = 15
+R_top_cyl = 10
+H_bottom_cyl = 15
+H_top_cyl = 30
 
-c1 = Cylinder('C1', r1=R1, r2=R2, h=H1, h_r=H_R, h_h=H_H)
-c1.center.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.8)
-# c1.configure()
-# c1.build()
+LN_platform = 100
+WG_platform = 100
+H_platform = 10
 
-c2 = Cylinder('C2', r1=R1, h=H2, z0=H1, h_r=H_R, h_h=H_H)
-# c2.center.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.2)
+parts = [(R_bottom_cyl, R_top_cyl, H_bottom_cyl), (R_top_cyl, R_top_cyl, H_top_cyl)]
+origins = [(30, 30, 0), (-30, 30, 0), (30, -30, 0), (-30, -30, 0)]
+Z_platform = sum(i[2] for i in parts)
 
-col1 = Column('col1', c1, c2)
-col1.configure()
-col1.build()
+os.system("rm result/*.*")
+
+# c2.center.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.5)
+columns = []
+
+for n, i in enumerate(origins):
+    columns.append(Column(f'col_{n}', parts, origin=i, h_r=H_R, h_h=H_H))
+
+p1 = Parallelepiped('P1', lg=LN_platform, w=WG_platform, h=H_platform, z0=Z_platform,
+                    h_l=H_R, h_w=H_R, h_h=H_H)
+
+pl = Platform('pl1', p1, *columns)
+pl.configure()
+pl.build()
