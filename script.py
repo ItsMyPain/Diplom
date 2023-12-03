@@ -2,6 +2,9 @@ import os
 
 from objects import *
 
+DT = 0.01
+STEPS = 1
+
 H_R = 0.35
 H_H = 0.35
 
@@ -31,4 +34,5 @@ p1 = Parallelepiped('P1', lg=LN_platform, w=WG_platform, h=H_platform, z0=Z_plat
 
 pl = Platform('pl1', p1, *columns)
 pl.configure()
+pl.update_config()
 pl.build()

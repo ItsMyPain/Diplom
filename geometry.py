@@ -1,3 +1,4 @@
+import re
 import subprocess
 from pathlib import Path
 
@@ -14,6 +15,8 @@ INTERP_DIR = 'interpolation'
 INTERP_COMM1 = 'direction=1 interpolation=barycentric rect/rect/build/interpolation'
 INTERP_COMM2 = 'direction=2 interpolation=barycentric rect/rect/build/interpolation'
 BUILD_COMM = 'rect/rect/build/rect'
+
+AXES = {'X0': 0, 'Y0': 1, 'Z0': 2}
 
 
 class Axe:
@@ -54,6 +57,7 @@ class Geometry:
     path: str | None
     configured: bool
     impulse: None | Impulse
+    sewed: set[tuple[int, int]]
 
     def __init__(self, x: Axe, y: Axe, z: Axe, filename: str, impulse=None):
         if x.data.shape != y.data.shape or z.data.shape != y.data.shape:
@@ -65,6 +69,7 @@ class Geometry:
         self.path = None
         self.configured = False
         self.impulse = impulse
+        self.sewed = set()
 
     def add_impulse(self, filename: str, x: int | float = None, y: int | float = None, z: int | float = None):
         base = (self.x.size, self.y.size, self.z.size)
@@ -97,8 +102,22 @@ class Geometry:
                 self.x.size, self.y.size, self.z.size,
                 self.x.path, self.y.path, self.z.path]
 
+        connectors = {(i, j) for i in range(3) for j in range(2)} - self.sewed
+        fillers = [f"""            [filler]
+                name = RectPeriodFiller
+                axis = {i}
+                side = {j}
+            [/filler]""" for i, j in connectors]
+        args.append('\n'.join(fillers))
+
+        correctors = [f"""            [corrector]
+                name = ForceRectElasticBoundary2D
+                axis = {i}
+                side = {j}
+           [/corrector]""" for i, j in connectors]
+
         if self.impulse is not None:
-            args.append(f"""[corrector]
+            correctors.append(f"""            [corrector]
                 name = PointSourceCorrector3D
                 compression = 1.0
                 gauss_w = 1
@@ -112,8 +131,8 @@ class Geometry:
                     [/interpolator]
                 [/impulse]
             [/corrector]""")
-        else:
-            args.append("")
+
+        args.append('\n'.join(correctors))
 
         with open(f'{CONFIGS_DIR}/template.conf') as f:
             config = f.read()
@@ -129,7 +148,7 @@ class Geometry:
 
         self.configured = True
 
-    def sew(self, obj: 'Geometry', ghost_to: str, ghosts: tuple[int, int], directory=''
+    def sew(self, obj: 'Geometry', ghost_to: str, ghosts: tuple[int, int], direction: int, directory=''
             ) -> tuple[str, str, str, str]:
         if not isinstance(obj, Geometry):
             raise Exception("Неверный тип данных")
@@ -170,4 +189,55 @@ class Geometry:
         if proc.returncode != 0:
             raise Exception(comm2)
 
+        self.sewed.add((AXES[ghost_to], direction))
+        obj.sewed.add((AXES[ghost_to], int(not bool(direction))))
+
         return self.filename, obj.filename, output1, output2
+
+    def update_config(self):
+        with open(self.path) as f:
+            config = f.read()
+
+        connectors = {(i, j) for i in range(3) for j in range(2)} - self.sewed
+        fillers = '\n'.join([f"""            [filler]
+                name = RectPeriodFiller
+                axis = {i}
+                side = {j}
+            [/filler]""" for i, j in connectors])
+
+        config = re.sub(r"\[fillers].*\[/fillers]",
+                        f"[fillers]\n{fillers}\n        [/fillers]",
+                        config,
+                        flags=re.DOTALL)
+
+        correctors = [f"""            [corrector]
+                name = ForceRectElasticBoundary2D
+                axis = {i}
+                side = {j}
+           [/corrector]""" for i, j in connectors]
+
+        if self.impulse is not None:
+            correctors.append(f"""            [corrector]
+                name = PointSourceCorrector3D
+                compression = 1.0
+                gauss_w = 1
+                index = {self.impulse.x}, {self.impulse.y}, {self.impulse.z}
+                axis = 0
+                [impulse]
+                    name = FileInterpolationImpulse
+                    [interpolator]
+                        name = PiceWiceInterpolator1D
+                        file = {self.impulse.filename}
+                    [/interpolator]
+                [/impulse]
+            [/corrector]""")
+
+        correctors = '\n'.join(correctors)
+
+        config = re.sub(r"\[correctors].*\[/correctors]",
+                        f"[correctors]\n{correctors}\n        [/correctors]",
+                        config,
+                        flags=re.DOTALL)
+
+        with open(self.path, 'w') as f:
+            f.write(config)
