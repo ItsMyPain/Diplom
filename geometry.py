@@ -102,19 +102,22 @@ class Geometry:
                 self.x.size, self.y.size, self.z.size,
                 self.x.path, self.y.path, self.z.path]
 
-        connectors = {(i, j) for i in range(3) for j in range(2)} - self.sewed
-        fillers = [f"""            [filler]
-                name = RectPeriodFiller
-                axis = {i}
-                side = {j}
-            [/filler]""" for i, j in connectors]
+        # connectors = {(i, j) for i in range(3) for j in range(2)} - self.sewed
+        # fillers = [f"""            [filler]
+        #         name = RectPeriodFiller
+        #         axis = {i}
+        #         side = {j}
+        #     [/filler]""" for i, j in connectors]
+        fillers = []
         args.append('\n'.join(fillers))
+        #
+        # correctors = [f"""            [corrector]
+        #         name = ForceRectElasticBoundary2D
+        #         axis = {i}
+        #         side = {j}
+        #    [/corrector]""" for i, j in connectors]
 
-        correctors = [f"""            [corrector]
-                name = ForceRectElasticBoundary2D
-                axis = {i}
-                side = {j}
-           [/corrector]""" for i, j in connectors]
+        correctors = []
 
         if self.impulse is not None:
             correctors.append(f"""            [corrector]
