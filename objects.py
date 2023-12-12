@@ -113,9 +113,10 @@ class Parallelepiped(Base):
         self.path = self.data.path
         self.configured = True
 
-    def sew_geom(self, obj: Geometry, ghost_to: str, ghosts: tuple[int, int], direction: int, directory=''):
+    def sew_geom(self, obj: Geometry, ghost_from: str, ghost_to: str, ghosts: tuple[int, int], direction_from: int,
+                 direction_to: int, directory=''):
         super()._sew(obj)
-        return self.data.sew(obj, ghost_to, ghosts, direction,
+        return self.data.sew(obj, ghost_from, ghost_to, ghosts, direction_from, direction_to,
                              f"{directory}/{self.filename}" if directory else self.filename)
 
     def update_config(self):
@@ -223,42 +224,43 @@ class Cylinder(Base):
         self.right.configure(direct)
         self.left.configure(direct)
 
-        sews = [self.top.sew(self.left, 'X0', (0, 1), 1, direct),
-                self.left.sew(self.bottom, 'X0', (0, 1), 1, direct),
-                self.bottom.sew(self.right, 'X0', (0, 1), 1, direct),
-                self.right.sew(self.top, 'X0', (0, 1), 1, direct),
-                self.center.sew_geom(self.top, 'Y0', (1, 0), 1, direct),
-                self.center.sew_geom(self.left, 'Y0', (1, 0), 1, direct),
-                self.center.sew_geom(self.bottom, 'Y0', (1, 0), 0, direct),
-                self.center.sew_geom(self.right, 'Y0', (1, 0), 0, direct)
-                ]
+        sews = [
+            self.top.sew(self.left, 'X0', 'X0', (1, 1), 0, 0, direct),
+            self.left.sew(self.bottom, 'X0', 'X0', (0, 1), 1, 1, direct),
+            self.bottom.sew(self.right, 'X0', 'X0', (1, 1), 0, 0, direct),
+            self.right.sew(self.top, 'X0', 'X0', (0, 1), 1, 1, direct),
+            self.center.sew_geom(self.top, 'Y0', 'Y0', (1, 0), 1, 0, direct),
+            self.center.sew_geom(self.left, 'X0', 'Y0', (1, 0), 0, 0, direct),
+            self.center.sew_geom(self.bottom, 'Y0', 'Y0', (1, 0), 0, 0, direct),
+            self.center.sew_geom(self.right, 'X0', 'Y0', (1, 0), 1, 0, direct)
+        ]
 
         self._save_new_config((self.top, self.left, self.bottom, self.right, self.center), sews, directory)
 
         self.configured = True
 
-    def sew_cyl(self, cylinder: 'Cylinder', direction: int, directory=''):
+    def sew_cyl(self, cylinder: 'Cylinder', direction_from: int, direction_to: int, directory=''):
         super()._sew(cylinder)
         direct = f"{directory}/{self.filename}" if directory else self.filename
 
         return [
-            self.center.sew_geom(cylinder.center.data, 'Z0', (1, 0), direction, direct),
-            self.top.sew(cylinder.top, 'Z0', (1, 0), direction, direct),
-            self.right.sew(cylinder.right, 'Z0', (1, 0), direction, direct),
-            self.bottom.sew(cylinder.bottom, 'Z0', (1, 0), direction, direct),
-            self.left.sew(cylinder.left, 'Z0', (1, 0), direction, direct),
+            self.center.sew_geom(cylinder.center.data, 'Z0', 'Z0', (1, 1), direction_from, direction_to, direct),
+            self.top.sew(cylinder.top, 'Z0', 'Z0', (1, 1), direction_from, direction_to, direct),
+            self.right.sew(cylinder.right, 'Z0', 'Z0', (1, 1), direction_from, direction_to, direct),
+            self.bottom.sew(cylinder.bottom, 'Z0', 'Z0', (1, 1), direction_from, direction_to, direct),
+            self.left.sew(cylinder.left, 'Z0', 'Z0', (1, 1), direction_from, direction_to, direct),
         ]
 
-    def sew_par(self, parallelepiped: Parallelepiped, direction: int, directory=''):
+    def sew_par(self, parallelepiped: Parallelepiped, direction_from: int, direction_to: int, directory=''):
         super()._sew(parallelepiped)
         direct = f"{directory}/{self.filename}" if directory else self.filename
 
         return [
-            self.center.sew_geom(parallelepiped.data, 'Z0', (1, 1), direction, direct),
-            self.top.sew(parallelepiped.data, 'Z0', (1, 1), direction, direct),
-            self.right.sew(parallelepiped.data, 'Z0', (1, 1), direction, direct),
-            self.bottom.sew(parallelepiped.data, 'Z0', (1, 1), direction, direct),
-            self.left.sew(parallelepiped.data, 'Z0', (1, 1), direction, direct)
+            self.center.sew_geom(parallelepiped.data, 'Z0', 'Z0', (1, 1), direction_from, direction_to, direct),
+            self.top.sew(parallelepiped.data, 'Z0', 'Z0', (1, 1), direction_from, direction_to, direct),
+            self.right.sew(parallelepiped.data, 'Z0', 'Z0', (1, 1), direction_from, direction_to, direct),
+            self.bottom.sew(parallelepiped.data, 'Z0', 'Z0', (1, 1), direction_from, direction_to, direct),
+            self.left.sew(parallelepiped.data, 'Z0', 'Z0', (1, 1), direction_from, direction_to, direct)
         ]
 
     def update_config(self):
@@ -291,7 +293,7 @@ class Column(Base):
 
         for i in range(len(self.cylinders) - 1):
             sews.extend(
-                self.cylinders[i].sew_cyl(self.cylinders[i + 1], 1, direct)
+                self.cylinders[i].sew_cyl(self.cylinders[i + 1], 1, 0, direct)
             )
 
         self._save_new_config(self.cylinders, sews, directory)
@@ -325,7 +327,7 @@ class Platform(Base):
         sews = []
 
         for i in self.columns:
-            sews.extend(i.cylinders[self.pos].sew_par(self.main, 1, direct))
+            sews.extend(i.cylinders[self.pos].sew_par(self.main, 1, 0, direct))
 
         self._save_new_config((self.main, *self.columns), sews, directory)
 

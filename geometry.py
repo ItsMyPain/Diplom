@@ -151,8 +151,8 @@ class Geometry:
 
         self.configured = True
 
-    def sew(self, obj: 'Geometry', ghost_to: str, ghosts: tuple[int, int], direction: int, directory=''
-            ) -> tuple[str, str, str, str]:
+    def sew(self, obj: 'Geometry', ghost_from: str, ghost_to: str, ghosts: tuple[int, int], direction_from: int,
+            direction_to: int, directory='') -> tuple[str, str, str, str]:
         if not isinstance(obj, Geometry):
             raise Exception("Неверный тип данных")
         if not self.configured or not obj.configured:
@@ -192,8 +192,8 @@ class Geometry:
         if proc.returncode != 0:
             raise Exception(comm2)
 
-        self.sewed.add((AXES[ghost_to], direction))
-        obj.sewed.add((AXES[ghost_to], int(not bool(direction))))
+        self.sewed.add((AXES[ghost_from], direction_from))
+        obj.sewed.add((AXES[ghost_to], direction_to))
 
         return self.filename, obj.filename, output1, output2
 

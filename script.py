@@ -2,8 +2,8 @@ import os
 
 from objects import *
 
-H_R = 0.6
-H_H = 0.6
+H_R = 0.8
+H_H = 0.8
 
 R_bottom_cyl = 15
 R_top_cyl = 10
@@ -25,7 +25,7 @@ columns = []
 for n, i in enumerate(origins):
     columns.append(Column(f'col_{n}', parts, origin=i, h_r=H_R, h_h=H_H))
 
-columns[0].cylinders[0].bottom.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.1)
+columns[0].cylinders[0].bottom.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.9, z=0.1)
 
 p1 = Parallelepiped('P1', lg=LN_platform, w=WG_platform, h=H_platform, z0=Z_platform,
                     h_l=H_R, h_w=H_R, h_h=H_H)
@@ -33,9 +33,9 @@ p1 = Parallelepiped('P1', lg=LN_platform, w=WG_platform, h=H_platform, z0=Z_plat
 pl = Platform('pl1', p1, *columns)
 pl.configure()
 
-pl.update_config()
-
-p1.data.sewed.remove((2, 0))
-p1.update_config()
+# pl.update_config()
+#
+# p1.data.sewed.remove((2, 0))
+# p1.update_config()
 
 pl.build()

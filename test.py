@@ -12,16 +12,37 @@ H_H = 0.35
 os.system("rm result/*.*")
 
 
-def par_col():
+def cyl():
+    c1 = Cylinder('C1', r1=R_top, r2=R_bottom, h=H1, h_r=H_R, h_h=H_H)
+    # c1.top.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.8)
+    # c1.left.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.8)
+    # c1.bottom.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.8)
+    # c1.right.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.01, z=0.8)
+    c1.center.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.8)
+    c1.configure()
+    # c1.update_config()
+    c1.build()
+
+
+def col():
+    parts = [(R_bottom, R_top, H1), (R_top, R_top, H1)]
+    origin = (0, 0, 0)
+    col1 = Column(f'col', parts, origin=origin, h_r=H_R, h_h=H_H)
+    col1.cylinders[1].top.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.5)
+    col1.configure()
+    # col1.update_config()
+    col1.build()
+
+
+def plat():
     parts = [(R_bottom, R_top, H1)]
     origin = (0, 0, 0)
-    col = Column(f'col', parts, origin=origin, h_r=H_R, h_h=H_H)
-
-    col.cylinders[0].bottom.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.1)
+    col1 = Column(f'col', parts, origin=origin, h_r=H_R, h_h=H_H)
+    col1.cylinders[0].top.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.5)
 
     p1 = Parallelepiped('P1', lg=3 * R_top, w=3 * R_top, h=H1, z0=H1,
                         h_l=H_R, h_w=H_R, h_h=H_H)
-    pl = Platform('pl1', p1, col)
+    pl = Platform('pl1', p1, col1)
 
     pl.configure()
     # pl.update_config()
@@ -33,7 +54,10 @@ def par_col():
 
 
 if __name__ == '__main__':
-    par_col()
+    # cyl()
+    # col()
+    # plat()
+    pass
 
 # p1 = Parallelepiped('P1', lg=4 * R1, w=4 * R1, h=5, z0=H1, h_l=H_R, h_w=H_R, h_h=H_H)
 # p1.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.5)
