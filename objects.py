@@ -4,7 +4,7 @@ from typing import Sequence
 
 import numpy as np
 
-from geometry import Geometry, Axe, BUILD_COMM, CONFIGS_DIR
+from geometry import Geometry, Axe, BUILD_COMM, CONFIGS_DIR, MAIN_CONF
 
 alpha = 0.2
 betta = 0.4
@@ -48,7 +48,7 @@ class Base:
         old_contacts = [f'@include("{i.path}", "contacts")' for i in configs]
         contacts.extend(old_contacts)
 
-        with open("main_template.conf") as f:
+        with open(MAIN_CONF) as f:
             config = f.read()
 
         config = config.format('\n'.join(grids), '\n'.join(contacts))
@@ -229,10 +229,10 @@ class Cylinder(Base):
             self.left.sew(self.bottom, 'X0', 'X0', (0, 1), 1, 1, direct),
             self.bottom.sew(self.right, 'X0', 'X0', (1, 1), 0, 0, direct),
             self.right.sew(self.top, 'X0', 'X0', (0, 1), 1, 1, direct),
-            self.center.sew_geom(self.top, 'Y0', 'Y0', (1, 0), 1, 0, direct),
-            self.center.sew_geom(self.left, 'X0', 'Y0', (1, 0), 0, 0, direct),
-            self.center.sew_geom(self.bottom, 'Y0', 'Y0', (1, 0), 0, 0, direct),
-            self.center.sew_geom(self.right, 'X0', 'Y0', (1, 0), 1, 0, direct)
+            self.center.sew_geom(self.top, 'Y0', 'Y0', (1, 1), 1, 0, direct),
+            self.center.sew_geom(self.left, 'X0', 'Y0', (1, 1), 0, 0, direct),
+            self.center.sew_geom(self.bottom, 'Y0', 'Y0', (1, 1), 0, 0, direct),
+            self.center.sew_geom(self.right, 'X0', 'Y0', (1, 1), 1, 0, direct)
         ]
 
         self._save_new_config((self.top, self.left, self.bottom, self.right, self.center), sews, directory)

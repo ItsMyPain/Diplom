@@ -12,6 +12,14 @@ CONFIGS_DIR = 'configs'
 INTERP_CFG_DIR = 'interpolation_configs'
 INTERP_DIR = 'interpolation'
 
+# BASE_CONF = 'template.conf'
+# INTERP_CFG = 'template.cfg'
+# MAIN_CONF = 'main_template.conf'
+
+BASE_CONF = 'template2D.conf'
+INTERP_CFG = 'template2D.cfg'
+MAIN_CONF = 'main_template2D.conf'
+
 INTERP_COMM1 = 'direction=1 interpolation=barycentric rect/rect/build/interpolation'
 INTERP_COMM2 = 'direction=2 interpolation=barycentric rect/rect/build/interpolation'
 BUILD_COMM = 'rect/rect/build/rect'
@@ -121,7 +129,7 @@ class Geometry:
 
         if self.impulse is not None:
             correctors.append(f"""            [corrector]
-                name = PointSourceCorrector3D
+                name = PointSourceCorrector2D
                 compression = 1.0
                 gauss_w = 1
                 index = {self.impulse.x}, {self.impulse.y}, {self.impulse.z}
@@ -137,7 +145,7 @@ class Geometry:
 
         args.append('\n'.join(correctors))
 
-        with open(f'{CONFIGS_DIR}/template.conf') as f:
+        with open(f'{CONFIGS_DIR}/{BASE_CONF}') as f:
             config = f.read()
 
         config = config.format(*args)
@@ -164,7 +172,7 @@ class Geometry:
         output1 = f'"{INTERP_DIR}/{direct}forward_{self.filename}_{obj.filename}.txt"'
         output2 = f'"{INTERP_DIR}/{direct}backward_{self.filename}_{obj.filename}.txt"'
 
-        with open(f'{INTERP_CFG_DIR}/template.cfg') as f:
+        with open(f'{INTERP_CFG_DIR}/{INTERP_CFG}') as f:
             config = f.read()
 
         config = config.format(self.filename, obj.filename, main_config, obj_config,

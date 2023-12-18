@@ -6,19 +6,19 @@ R_bottom = 15
 R_top = 10
 H1 = 20
 H2 = 30
-H_R = 0.35
+H_R = 0.2
 H_H = 0.35
 
 os.system("rm result/*.*")
 
 
 def cyl():
-    c1 = Cylinder('C1', r1=R_top, r2=R_bottom, h=H1, h_r=H_R, h_h=H_H)
+    c1 = Cylinder('C1', r1=R_top, r2=R_bottom, h=H1, h_r=H_R, h_h=2 * H1)
     # c1.top.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.8)
     # c1.left.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.8)
     # c1.bottom.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.8)
     # c1.right.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.01, z=0.8)
-    c1.center.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.8)
+    c1.center.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.0)
     c1.configure()
     # c1.update_config()
     c1.build()
@@ -54,7 +54,7 @@ def plat():
 
 
 if __name__ == '__main__':
-    # cyl()
+    cyl()
     # col()
     # plat()
     pass
