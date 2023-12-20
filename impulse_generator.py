@@ -21,15 +21,15 @@ def write(times, values, file):
 
 
 # def f1(t):
-#     return np.exp(-1e4 * np.power(t - 0.1, 2))
+#     return np.exp(-1e6 * np.power(t - 0.01, 2))
 
 def f1(t):
-    return np.exp(-1e5 * np.power(t - 0.02, 2)) - np.exp(-1e5 * np.power(t - 0.025, 2))
+    return np.exp(-1e7 * np.power(t - 0.002, 2)) - np.exp(-1e7 * np.power(t - 0.003, 2))
 
 
 def generate_impulse(file):
     dt = 2.5e-05
-    times = np.arange(0, 0.2, dt)
+    times = np.arange(0, 0.02, dt)
     values = f1(times)
     write(times, values, file)
 

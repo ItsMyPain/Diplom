@@ -113,10 +113,9 @@ class Parallelepiped(Base):
         self.path = self.data.path
         self.configured = True
 
-    def sew_geom(self, obj: Geometry, ghost_from: str, ghost_to: str, ghosts: tuple[int, int], direction_from: int,
-                 direction_to: int, directory=''):
+    def sew_geom(self, obj: Geometry, ghost_from: str, ghost_to: str, ghosts: tuple[int, int], directory=''):
         super()._sew(obj)
-        return self.data.sew(obj, ghost_from, ghost_to, ghosts, direction_from, direction_to,
+        return self.data.sew(obj, ghost_from, ghost_to, ghosts,
                              f"{directory}/{self.filename}" if directory else self.filename)
 
     def update_config(self):
@@ -200,20 +199,31 @@ class Cylinder(Base):
         else:
             k = np.linspace(1, r1 / r2, size_z)
 
-        x = x1.flatten()
-        y = (b * np.sqrt(1 - np.power(x1, 2).T / a)).T.flatten()
+        x_vert = x1.flatten()
+        y_vert = (b * np.sqrt(1 - np.power(x1, 2).T / a)).T.flatten()
+        x_gor = np.flip(x1, axis=1).flatten()
+        y_gor = np.flip((b * np.sqrt(1 - np.power(x1, 2).T / a)).T, axis=1).flatten()
+
         z = z0 + np.linspace(0, h, size_z)
 
-        _, zz = np.meshgrid(x, z)
+        _, zz = np.meshgrid(x_vert, z)
 
-        xx = np.outer(k, x).flatten()
-        yy = np.outer(k, y).flatten()
+        xx_vert = np.outer(k, x_vert).flatten()
+        yy_vert = np.outer(k, y_vert).flatten()
+
+        xx_gor = np.outer(k, y_gor).flatten()
+        yy_gor = np.outer(k, x_gor).flatten()
+
         zz = zz.flatten()
 
-        self.top = Geometry(Axe(x0 + xx, size_x), Axe(y0 + yy, size_y), Axe(zz, size_z), f'{filename}_top')
-        self.right = Geometry(Axe(x0 + yy, size_x), Axe(y0 + xx, size_y), Axe(zz, size_z), f'{filename}_right')
-        self.bottom = Geometry(Axe(x0 - xx, size_x), Axe(y0 - yy, size_y), Axe(zz, size_z), f'{filename}_bottom')
-        self.left = Geometry(Axe(x0 - yy, size_x), Axe(y0 - xx, size_y), Axe(zz, size_z), f'{filename}_left')
+        self.top = Geometry(Axe(x0 + xx_vert, size_x), Axe(y0 + yy_vert, size_y), Axe(zz, size_z),
+                            filename=f'{filename}_top')
+        self.right = Geometry(Axe(x0 + xx_gor, size_x), Axe(y0 + yy_gor, size_y), Axe(zz, size_z),
+                              filename=f'{filename}_right')
+        self.bottom = Geometry(Axe(x0 - xx_vert, size_x), Axe(y0 - yy_vert, size_y), Axe(zz, size_z),
+                               filename=f'{filename}_bottom')
+        self.left = Geometry(Axe(x0 - xx_gor, size_x), Axe(y0 - yy_gor, size_y), Axe(zz, size_z),
+                             filename=f'{filename}_left')
 
     def configure(self, directory=''):
         direct = f"{directory}/{self.filename}" if directory else self.filename
@@ -225,14 +235,14 @@ class Cylinder(Base):
         self.left.configure(direct)
 
         sews = [
-            self.top.sew(self.left, 'X0', 'X0', (1, 1), 0, 0, direct),
-            self.left.sew(self.bottom, 'X0', 'X0', (0, 1), 1, 1, direct),
-            self.bottom.sew(self.right, 'X0', 'X0', (1, 1), 0, 0, direct),
-            self.right.sew(self.top, 'X0', 'X0', (0, 1), 1, 1, direct),
-            self.center.sew_geom(self.top, 'Y0', 'Y0', (1, 1), 1, 0, direct),
-            self.center.sew_geom(self.left, 'X0', 'Y0', (1, 1), 0, 0, direct),
-            self.center.sew_geom(self.bottom, 'Y0', 'Y0', (1, 1), 0, 0, direct),
-            self.center.sew_geom(self.right, 'X0', 'Y0', (1, 1), 1, 0, direct)
+            self.top.sew(self.left, 'X0', 'X1', (1, 1), direct),
+            self.left.sew(self.bottom, 'X0', 'X1', (1, 1), direct),
+            self.bottom.sew(self.right, 'X0', 'X1', (1, 1), direct),
+            self.right.sew(self.top, 'X0', 'X1', (1, 1), direct),
+            self.center.sew_geom(self.top, 'Y1', 'Y0', (1, 1), direct),
+            self.center.sew_geom(self.left, 'X0', 'Y0', (1, 1), direct),
+            self.center.sew_geom(self.bottom, 'Y0', 'Y0', (1, 1), direct),
+            self.center.sew_geom(self.right, 'X1', 'Y0', (1, 1), direct)
         ]
 
         self._save_new_config((self.top, self.left, self.bottom, self.right, self.center), sews, directory)

@@ -12,19 +12,17 @@ CONFIGS_DIR = 'configs'
 INTERP_CFG_DIR = 'interpolation_configs'
 INTERP_DIR = 'interpolation'
 
-# BASE_CONF = 'template.conf'
-# INTERP_CFG = 'template.cfg'
-# MAIN_CONF = 'main_template.conf'
+DIMS = 3
 
-BASE_CONF = 'template2D.conf'
-INTERP_CFG = 'template2D.cfg'
-MAIN_CONF = 'main_template2D.conf'
+BASE_CONF = f'template{DIMS}D.conf'
+INTERP_CFG = f'template{DIMS}D.cfg'
+MAIN_CONF = f'main_template{DIMS}D.conf'
 
 INTERP_COMM1 = 'direction=1 interpolation=barycentric rect/rect/build/interpolation'
 INTERP_COMM2 = 'direction=2 interpolation=barycentric rect/rect/build/interpolation'
 BUILD_COMM = 'rect/rect/build/rect'
 
-AXES = {'X0': 0, 'Y0': 1, 'Z0': 2}
+AXES = {'X': 0, 'Y': 1, 'Z': 2}
 
 
 class Axe:
@@ -129,9 +127,9 @@ class Geometry:
 
         if self.impulse is not None:
             correctors.append(f"""            [corrector]
-                name = PointSourceCorrector2D
+                name = PointSourceCorrector{DIMS}D
                 compression = 1.0
-                gauss_w = 1
+                gauss_w = 3
                 index = {self.impulse.x}, {self.impulse.y}, {self.impulse.z}
                 axis = 0
                 [impulse]
@@ -159,8 +157,8 @@ class Geometry:
 
         self.configured = True
 
-    def sew(self, obj: 'Geometry', ghost_from: str, ghost_to: str, ghosts: tuple[int, int], direction_from: int,
-            direction_to: int, directory='') -> tuple[str, str, str, str]:
+    def sew(self, obj: 'Geometry', ghost_from: str, ghost_to: str, ghosts: tuple[int, int], directory='') -> tuple[
+        str, str, str, str]:
         if not isinstance(obj, Geometry):
             raise Exception("Неверный тип данных")
         if not self.configured or not obj.configured:
@@ -176,7 +174,7 @@ class Geometry:
             config = f.read()
 
         config = config.format(self.filename, obj.filename, main_config, obj_config,
-                               output1, output2, ghost_to, ghosts[0], ghosts[1])
+                               output1, output2, ghost_to, ghost_from, ghosts[0], ghosts[1])
 
         path = f"{INTERP_CFG_DIR}/{directory}" if directory else CONFIGS_DIR
         Path(path).mkdir(parents=True, exist_ok=True)
@@ -200,8 +198,8 @@ class Geometry:
         if proc.returncode != 0:
             raise Exception(comm2)
 
-        self.sewed.add((AXES[ghost_from], direction_from))
-        obj.sewed.add((AXES[ghost_to], direction_to))
+        self.sewed.add((AXES[ghost_from[0]], int(ghost_from[-1])))
+        obj.sewed.add((AXES[ghost_to[0]], int(ghost_to[-1])))
 
         return self.filename, obj.filename, output1, output2
 
@@ -209,9 +207,9 @@ class Geometry:
         with open(self.path) as f:
             config = f.read()
 
-        connectors = {(i, j) for i in range(3) for j in range(2)} - self.sewed
+        connectors = {(i, j) for i in range(DIMS) for j in range(2)} - self.sewed
         fillers = '\n'.join([f"""            [filler]
-                name = RectPeriodFiller
+                name = RectNoReflectFiller
                 axis = {i}
                 side = {j}
             [/filler]""" for i, j in connectors])
@@ -222,16 +220,17 @@ class Geometry:
                         flags=re.DOTALL)
 
         correctors = [f"""            [corrector]
-                name = ForceRectElasticBoundary2D
+                name = ForceRectElasticBoundary{DIMS}D
                 axis = {i}
                 side = {j}
+                save_file = {self.filename}.vtk
            [/corrector]""" for i, j in connectors]
 
         if self.impulse is not None:
             correctors.append(f"""            [corrector]
-                name = PointSourceCorrector3D
+                name = PointSourceCorrector{DIMS}D
                 compression = 1.0
-                gauss_w = 1
+                gauss_w = 3
                 index = {self.impulse.x}, {self.impulse.y}, {self.impulse.z}
                 axis = 0
                 [impulse]
