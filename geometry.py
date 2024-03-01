@@ -223,7 +223,6 @@ class Geometry:
                 name = ForceRectElasticBoundary{DIMS}D
                 axis = {i}
                 side = {j}
-                save_file = {self.filename}.vtk
            [/corrector]""" for i, j in connectors]
 
         if self.impulse is not None:
