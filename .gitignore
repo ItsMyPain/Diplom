@@ -7,3 +7,8 @@
 /interpolation/*
 /interpolation_configs/*
 /result/*
+
+!/configs/template2D.conf
+!/configs/template3D.conf
+!/interpolation_configs/template2D.cfg
+!/interpolation_configs/template3D.cfg
