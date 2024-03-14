@@ -9,69 +9,8 @@ H1 = 20
 H2 = 50
 H_R = 0.5
 H_H = 0.5
-
-
-def cyl():
-    c1 = Cylinder('C2', r1=R_top, r2=R_bottom, h=H1, h_r=H_R, h_h=H_H)
-    # c1 = Cylinder('C1', r1=R_top, r2=R_top, h=H_H, h_r=H_R, h_h=H_H + 1)
-    # c1.top.add_impulse("test_impulse.txt", x=0.5, y=0.5, z=0)
-    # c1.left.add_impulse("test_impulse.txt", x=0.5, y=0.5, z=0)
-    # c1.bottom.add_impulse("test_impulse.txt", x=0.5, y=0.9, z=0)
-    # c1.right.add_impulse("test_impulse.txt", x=0.5, y=0.5, z=0)
-    c1.center.data.add_impulse("test_impulse.txt", x=0.5, y=0.5, z=0.5)
-    c1.configure()
-    # c1.center.data.sewed.add((2, 0))
-    # c1.right.sewed.add((2, 0))
-    # c1.left.sewed.add((2, 0))
-    # c1.top.sewed.add((2, 0))
-    # c1.bottom.sewed.add((2, 0))
-    c1.update_config()
-    c1.build()
-
-
-def col():
-    parts = [(R_bottom, R_top, H1), (R_top, R_top, H2)]
-    origin = (0, 0, 0)
-    col1 = Column(f'col', parts, origin=origin, h_r=H_R, h_h=H_H)
-    col1.cylinders[1].right.add_impulse("test_impulse.txt", x=0.5, y=0.99, z=0.3)
-    col1.configure()
-    col1.update_config()
-    col1.build()
-
-
-def plat():
-    parts = [(R_bottom, R_top, H1), (R_top, R_top, H2)]
-    origins = [(50, 50, H0), (50, -50, H0), (-50, 50, H0), (-50, -50, H0)]
-    cols = []
-    for i, origin in enumerate(origins):
-        cols.append(Column(f'col{i}', parts, origin=origin, h_r=H_R, h_h=H_H))
-    # col1.cylinders[0].top.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.5)
-
-    p1 = Parallelepiped('P1', lg=150, w=150, h=10, z0=H0 + H1 + H2,
-                        h_l=H_R, h_w=H_R, h_h=H_H)
-    pl = Platform('pl1', p1, *cols)
-
-    pl.configure()
-    pl.build()
-
-    # pl.update_config()
-
-    # p1.data.sewed.remove((2, 0))
-    # p1.update_config()
-
-
-def par_cyl():
-    c1 = Cylinder('C1', r1=10, h=30, h_r=0.5, h_h=0.5)
-    p1 = Parallelepiped('P1', lg=30, w=30, h=20, z0=30, h_l=0.5, h_w=0.5, h_h=0.5)
-
-    p1.data.add_impulse("test_impulse.txt", x=0.5, y=0.5, z=0.5)
-    # p1.configure()
-    # p1.update_config()
-
-    t1 = TestPlatform('T1', p1, c1)
-    t1.configure()
-    t1.update_config()
-    # t1.build()
+FILLER = 'RectNoReflectFiller'
+CORRECTOR = f'ForceRectElasticBoundary{DIMS}D'
 
 
 def par_par():
@@ -81,41 +20,68 @@ def par_par():
 
     p2.data.add_impulse("test_impulse.txt", x=0.5, y=0.5, z=0.5)
 
-    p3 = TwoParallelepipeds('P3', p1, p2)
+    p3 = TwoParallelepiped('P3', p1, p2)
     p3.configure()
     p3.build()
 
 
+def cyl():
+    c1 = Cylinder('C1', r1=10, r2=15, h=10, h_r=0.5, h_h=0.5)
+    c1.add_property(Filler, FILLER, ['XY'])
+    c1.add_property(Corrector, CORRECTOR, ['XY'])
+    # c1 = Cylinder('C1', r1=R_top, r2=R_top, h=H_H, h_r=H_R, h_h=H_H + 1)
+    # c1.top.add_impulse("test_impulse.txt", x=0.5, y=0.5, z=0)
+    # c1.left.add_impulse("test_impulse.txt", x=0.5, y=0.5, z=0)
+    # c1.bottom.add_impulse("test_impulse.txt", x=0.5, y=0.9, z=0)
+    # c1.right.add_impulse("test_impulse.txt", x=0.5, y=0.5, z=0)
+    c1.center.data.add_impulse("test_impulse.txt", x=0.5, y=0.8, z=0.5)
+    c1.configure()
+    c1.build()
+
+
+def col():
+    parts = [(15, 10, 5), (10, 10, 10)]
+    origin = (0, 0, 0)
+    col1 = Column(f'col1', parts, origin=origin, h_r=0.25, h_h=0.25)
+    col1.cylinders[1].right.add_impulse("test_impulse.txt", x=0.5, y=0.5, z=0.5)
+    col1.add_property(Filler, FILLER, ['XY', 'Z1'])
+    col1.add_property(Corrector, CORRECTOR, ['XY', 'Z1'])
+    col1.configure()
+    col1.build()
+
+
+def par_cyl():
+    c1 = Cylinder('C1', r1=10, h=20, h_r=0.25, h_h=0.25)
+    p1 = Parallelepiped('P1', lg=30, w=30, h=20, z0=20, h_l=0.25, h_w=0.25, h_h=0.25)
+
+    p1.data.add_impulse("test_impulse.txt", x=0.5, y=0.7, z=0.5)
+
+    t1 = ParallelepipedCylinder('T1', p1, c1)
+    t1.configure()
+    t1.build()
+
+
+def plat():
+    parts = [(10, 5, 5), (5, 5, 10)]
+    origins = [(25, 25, 5), (25, -25, 5), (-25, 25, 5), (-25, -25, 5)]
+    cols = []
+    for i, origin in enumerate(origins):
+        cols.append(Column(f'col{i}', parts, origin=origin, h_r=H_R, h_h=H_H))
+
+    cols[0].cylinders[0].top.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.5)
+
+    p1 = Parallelepiped('P1', lg=35, w=35, h=5, h_l=0.5, h_w=0.5, h_h=0.5)
+    p2 = Parallelepiped('P2', lg=35, w=35, h=5, h_l=0.5, h_w=0.5, h_h=0.5, z0=20)
+    pl = Platform('pl1', p1, p2, cols)
+
+    pl.configure()
+    pl.build()
+
+
 if __name__ == '__main__':
     os.system("rm result/*.*")
-    par_par()
-
+    # par_par()
     # cyl()
     # col()
-    # plat()
-
-# p1 = Parallelepiped('P1', lg=4 * R1, w=4 * R1, h=5, z0=H1, h_l=H_R, h_w=H_R, h_h=H_H)
-# p1.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.5)
-# p1.configure()
-# p1.build()
-
-# c1 = Cylinder('C1', r1=R_top, r2=R_bottom, h=H1, h_r=H_R, h_h=H_H)
-# c1.center.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.8)
-# c1.right.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.8, z=0.5)
-# c1.configure()
-# c1.build()
-
-# c2 = Cylinder('C2', r1=R_top, h=H2, z0=H1, h_r=H_R, h_h=H_H)
-# c2.center.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.5)
-# c2.right.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.8, z=0.2)
-#
-# c3 = Cylinder('C3', r1=R2, r2=R1, h=H1, z0=H1 + H2, h_r=H_R, h_h=H_H)
-# c3.center.data.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.5, z=0.5)
-
-
-# col1 = Column('col1', c1, c2)
-# p1 = Parallelepiped('P1', lg=4 * R_top, w=4 * R_top, h=5, z0=H1 + H2, h_l=H_R, h_w=H_R, h_h=H_H)
-#
-# pl = Platform('pl1', p1, col1)
-# pl.configure()
-# pl.build()
+    # par_cyl()
+    plat()

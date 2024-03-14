@@ -1,6 +1,6 @@
-import re
 import subprocess
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 
@@ -24,6 +24,23 @@ INTERP_COMM2 = 'direction=2 interpolation=barycentric rect/rect/build/interpolat
 BUILD_COMM = 'rect_new/rect/build/rect'
 
 AXES = {'X': 0, 'Y': 1, 'Z': 2}
+
+
+class Helper:
+    commands: list[str]
+
+    def __init__(self):
+        self.commands = []
+
+    def add_command(self, command: str):
+        self.commands.append(command)
+
+    def to_file(self, filename: str = 'build.sh'):
+        with open(filename, 'w') as f:
+            f.write(' &\n'.join(self.commands))
+
+
+# helper = Helper()
 
 
 class Axe:
@@ -99,31 +116,50 @@ class Condition:
         self.name2 = name2
         self.nodes_file = nodes_file
 
-    def from_contact(self, contact: Contact, z=(0, -1, -2), directory=''):
-        path = f"{BOUNDARY_DIR}/{directory}/{contact.first_geom.filename}" if directory else f"{BOUNDARY_DIR}/{contact.first_geom.filename}"
+    def from_contact(self, obj, contacts: list[Contact], direction: Literal['forward', 'backward'],
+                     side: Literal['Z1', 'Z0'], directory=''):
+        path = f"{BOUNDARY_DIR}/{directory}/{obj.filename}" if directory else f"{BOUNDARY_DIR}/{obj.filename}"
         Path(path).mkdir(parents=True, exist_ok=True)
         self.nodes_file = f"{path}/erased_nodes.txt"
-        with open(contact.forward_output[1:-1], 'r') as input_f:
-            with open(self.nodes_file, 'w') as output_f:
+
+        if side == 'Z1':
+            z = (obj.data.z.size - 1, obj.data.z.size, obj.data.z.size + 1)
+        else:
+            z = (0, -1, -2)
+
+        xx, yy, zz = [], [], []
+        nn = 0
+        for contact in contacts:
+            if direction == 'forward':
+                input_file = contact.forward_output[1:-1]
+            else:
+                input_file = contact.backward_output[1:-1]
+            with open(input_file, 'r') as input_f:
                 input_f.readline()
                 input_f.readline()
                 n = int(input_f.readline()) // 2
-                output_f.write(f'{len(z) * n}\n')
+                nn += n
                 for i in range(n):
-                    x, y = map(int, input_f.readline().split()[:2])
+                    x_i, y_i = map(int, input_f.readline().split()[:2])
                     for z_i in z:
-                        output_f.write(f'{x} {y} {z_i}\n')
+                        xx.append(x_i)
+                        yy.append(y_i)
+                        zz.append(z_i)
+        with open(self.nodes_file, 'w') as output_f:
+            output_f.write(f'{len(xx)}\n')
+            for i in range(len(xx)):
+                output_f.write(f'{xx[i]} {yy[i]} {zz[i]}\n')
 
     def to_config(self) -> str:
         return f"""                [condition]
-                    name = {self.name1}
-                    [conditions]
-                        [condition]
-                            name = {self.name2}
-                            nodes_file = {self.nodes_file}
-                        [/condition]
-                    [/conditions]
-                [/condition]"""
+                        name = {self.name1}
+                        [conditions]
+                            [condition]
+                                name = {self.name2}
+                                nodes_file = {self.nodes_file}
+                            [/condition]
+                        [/conditions]
+                    [/condition]"""
 
 
 class Filler:
@@ -314,66 +350,64 @@ class Geometry:
         Path(out_path).mkdir(parents=True, exist_ok=True)
 
         comm1 = f"{INTERP_COMM1} {config_filename}"
-        print(comm1)
-        proc = subprocess.run(comm1, shell=True, stdout=STDOUT, stderr=STDERR)
-        if proc.returncode != 0:
-            raise Exception(comm1)
+        # print(comm1)
+        # proc = subprocess.run(comm1, shell=True, stdout=STDOUT, stderr=STDERR, check=True, start_new_session=True)
+        # helper.add_command(comm1)
 
         comm2 = f"{INTERP_COMM2} {config_filename}"
-        print(comm2)
-        proc = subprocess.run(comm2, shell=True, stdout=STDOUT, stderr=STDERR)
-        if proc.returncode != 0:
-            raise Exception(comm2)
-
-        # self.sewed.add((AXES[ghost_from[0]], int(ghost_from[-1])))
-        # obj.sewed.add((AXES[ghost_to[0]], int(ghost_to[-1])))
+        # print(comm2)
+        # proc = subprocess.run(comm2, shell=True, stdout=STDOUT, stderr=STDERR, check=True, start_new_session=True)
+        # helper.add_command(comm2)
+        with open('build.sh', 'w') as f:
+            f.write(f"{comm1} && {comm2}")
+        subprocess.Popen('bash build.sh', shell=True).wait()
 
         return Contact(self, obj, output1, output2)
 
-    def update_config(self):
-        with open(self.path) as f:
-            config = f.read()
-
-        connectors = {(i, j) for i in range(DIMS) for j in range(2)} - self.sewed
-        fillers = '\n'.join([f"""            [filler]
-                name = RectNoReflectFiller
-                axis = {i}
-                side = {j}
-            [/filler]""" for i, j in connectors])
-
-        config = re.sub(r"\[fillers].*\[/fillers]",
-                        f"[fillers]\n{fillers}\n        [/fillers]",
-                        config,
-                        flags=re.DOTALL)
-
-        correctors = [f"""            [corrector]
-                name = ForceRectElasticBoundary{DIMS}D
-                axis = {i}
-                side = {j}
-           [/corrector]""" for i, j in connectors]
-
-        if self.impulse is not None:
-            correctors.append(f"""            [corrector]
-                name = PointSourceCorrector{DIMS}D
-                compression = 1.0
-                gauss_w = 3
-                index = {self.impulse.x}, {self.impulse.y}, {self.impulse.z}
-                axis = 0
-                [impulse]
-                    name = FileInterpolationImpulse
-                    [interpolator]
-                        name = PiceWiceInterpolator1D
-                        file = {self.impulse.filename}
-                    [/interpolator]
-                [/impulse]
-            [/corrector]""")
-
-        correctors = '\n'.join(correctors)
-
-        config = re.sub(r"\[correctors].*\[/correctors]",
-                        f"[correctors]\n{correctors}\n        [/correctors]",
-                        config,
-                        flags=re.DOTALL)
-
-        with open(self.path, 'w') as f:
-            f.write(config)
+    # def update_config(self):
+    #     with open(self.path) as f:
+    #         config = f.read()
+    #
+    #     connectors = {(i, j) for i in range(DIMS) for j in range(2)} - self.sewed
+    #     fillers = '\n'.join([f"""            [filler]
+    #             name = RectNoReflectFiller
+    #             axis = {i}
+    #             side = {j}
+    #         [/filler]""" for i, j in connectors])
+    #
+    #     config = re.sub(r"\[fillers].*\[/fillers]",
+    #                     f"[fillers]\n{fillers}\n        [/fillers]",
+    #                     config,
+    #                     flags=re.DOTALL)
+    #
+    #     correctors = [f"""            [corrector]
+    #             name = ForceRectElasticBoundary{DIMS}D
+    #             axis = {i}
+    #             side = {j}
+    #        [/corrector]""" for i, j in connectors]
+    #
+    #     if self.impulse is not None:
+    #         correctors.append(f"""            [corrector]
+    #             name = PointSourceCorrector{DIMS}D
+    #             compression = 1.0
+    #             gauss_w = 3
+    #             index = {self.impulse.x}, {self.impulse.y}, {self.impulse.z}
+    #             axis = 0
+    #             [impulse]
+    #                 name = FileInterpolationImpulse
+    #                 [interpolator]
+    #                     name = PiceWiceInterpolator1D
+    #                     file = {self.impulse.filename}
+    #                 [/interpolator]
+    #             [/impulse]
+    #         [/corrector]""")
+    #
+    #     correctors = '\n'.join(correctors)
+    #
+    #     config = re.sub(r"\[correctors].*\[/correctors]",
+    #                     f"[correctors]\n{correctors}\n        [/correctors]",
+    #                     config,
+    #                     flags=re.DOTALL)
+    #
+    #     with open(self.path, 'w') as f:
+    #         f.write(config)

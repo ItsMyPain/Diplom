@@ -1,5 +1,9 @@
 /rect
 /rect_new
-/bins
 /.idea
-/result
+/bins/*
+/boundary/*
+/configs/*
+/interpolation/*
+/interpolation_configs/*
+/result/*

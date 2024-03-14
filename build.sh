@@ -1,0 +1,1 @@
+direction=1 interpolation=barycentric rect/rect/build/interpolation interpolation_configs/pl1/col3_cyl_1/col3_cyl_1_left_P2_data.cfg && direction=2 interpolation=barycentric rect/rect/build/interpolation interpolation_configs/pl1/col3_cyl_1/col3_cyl_1_left_P2_data.cfg
