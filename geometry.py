@@ -36,6 +36,7 @@ AXES = {'X': 0, 'Y': 1, 'Z': 2}
 
 RectGridInterpolationCorrector = 'RectGridInterpolationCorrector'
 GlueRectElasticContact = f'GlueRectElasticContact{DIMS}D'
+RectNoReflectFiller = 'RectNoReflectFiller'
 
 
 class Helper:
@@ -81,6 +82,18 @@ class NewContact:
 
     def __init__(self, name: str, grid1: str, grid2: str, interpolation_file: str = None, contact_file: str = None,
                  predictor_flag: bool = None, corrector_flag: bool = None, axis: int = None):
+        """
+        Класс контакта сеток.
+
+        :param name: Название
+        :param grid1:
+        :param grid2:
+        :param interpolation_file:
+        :param contact_file:
+        :param predictor_flag:
+        :param corrector_flag:
+        :param axis:
+        """
         self.name = name
         self.grid1 = grid1
         self.grid2 = grid2
@@ -177,7 +190,7 @@ class Condition:
         self.name2 = name2
         self.nodes_file = nodes_file
 
-    def from_contact(self, obj, contacts: list[Contact], direction: Literal['forward', 'backward'],
+    def from_contact(self, obj, contacts: list[NewContact], direction: Literal['forward', 'backward'],
                      side: Literal['Z1', 'Z0'], directory=''):
         path = f"{BOUNDARY_DIR}/{directory}/{obj.filename}" if directory else f"{BOUNDARY_DIR}/{obj.filename}"
         Path(path).mkdir(parents=True, exist_ok=True)
@@ -191,10 +204,11 @@ class Condition:
 
         input_files = []
         for contact in contacts:
-            if direction == 'forward':
-                input_files.append(contact.forward_output[1:-1])
-            else:
-                input_files.append(contact.backward_output[1:-1])
+            if hasattr(contact, 'interpolation_file'):
+                if direction == 'forward':
+                    input_files.append(contact.interpolation_file[1:-1])
+                else:
+                    input_files.append(contact.interpolation_file[1:-1])
         input_files = ' '.join(input_files)
 
         helper.add_command(f"python3 {BOUNDARY_CUTTER} {self.nodes_file} '{z}' '{input_files}'")

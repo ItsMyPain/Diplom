@@ -4,7 +4,7 @@ from typing import Sequence, Literal
 import numpy as np
 
 from geometry import Geometry, Axe, BUILD_COMM, CONFIGS_DIR, MAIN_CONF, Condition, Filler, Corrector, DIMS, \
-    Contact
+    RectNoReflectFiller, NewContact, helper
 
 alpha = 0.2
 
@@ -13,7 +13,7 @@ class Base:
     filename: str
     configured: bool
     path: str | None
-    contacts: list[Contact]
+    contacts: list[NewContact]
 
     def __init__(self, filename: str, *args, **kwargs):
         self.filename = filename
@@ -45,6 +45,7 @@ class Base:
         if not self.configured:
             raise Exception(f"Не конфигурирован: {self.filename}")
 
+        helper.to_file()
         comm = f"{BUILD_COMM} {self.path}"
         print(comm)
         # proc = subprocess.run(comm, shell=True)
@@ -87,7 +88,7 @@ class Parallelepiped(Base):
         yy = y0 + np.outer(k2, y).flatten()
         zz = zz.flatten()
 
-        self.data = Geometry(Axe(xx, size_x), Axe(yy, size_y), Axe(zz, size_z), f'{filename}_data')
+        self.data = Geometry(Axe(xx, size_x), Axe(yy, size_y), Axe(zz, size_z), filename)
 
     def configure(self, directory=''):
         self.data.configure(f"{directory}/{self.filename}" if directory else self.filename)
@@ -136,8 +137,7 @@ class Ring(Base):
         xx, _ = np.meshgrid(x, z)
         yy, zz = np.meshgrid(y, z)
 
-        self.data = Geometry(Axe(xx.flatten(), size_x), Axe(yy.flatten(), size_y), Axe(zz.flatten(), size_z),
-                             f'{filename}_data')
+        self.data = Geometry(Axe(xx.flatten(), size_x), Axe(yy.flatten(), size_y), Axe(zz.flatten(), size_z), filename)
 
     def configure(self, directory=''):
         self.data.configure(f"{directory}/{self.filename}" if directory else self.filename)
@@ -146,7 +146,7 @@ class Ring(Base):
 
 
 class Cylinder(Base):
-    center: Parallelepiped
+    center: Geometry
     top: Geometry
     bottom: Geometry
     right: Geometry
@@ -169,7 +169,7 @@ class Cylinder(Base):
         self.center = Parallelepiped(f'{filename}_center',
                                      lg=2 * m1, w=2 * m1, h=h, lg2=2 * m2, w2=2 * m2,
                                      h_l=h_r, h_w=h_r, h_h=h_h,
-                                     x0=x0, y0=y0, z0=z0)
+                                     x0=x0, y0=y0, z0=z0).data
 
         y1 = m + np.arange(0, (m + h_r / 2) / np.sqrt(2), h_r / np.sqrt(2))
         y2 = m + np.arange(0, (m + h_r / 2) * np.sqrt(2), h_r * np.sqrt(2))
@@ -221,23 +221,23 @@ class Cylinder(Base):
         self.right.configure(direct)
         self.left.configure(direct)
 
-        self.contacts = [
-            self.top.sew(self.left, 'X0', 'X1', (1, 1), direct),
-            self.left.sew(self.bottom, 'X0', 'X1', (1, 1), direct),
-            self.bottom.sew(self.right, 'X0', 'X1', (1, 1), direct),
-            self.right.sew(self.top, 'X0', 'X1', (1, 1), direct),
-            self.center.sew_geom(self.top, 'Y1', 'Y0', (1, 1), direct),
-            self.center.sew_geom(self.left, 'X0', 'Y0', (1, 1), direct),
-            self.center.sew_geom(self.bottom, 'Y0', 'Y0', (1, 1), direct),
-            self.center.sew_geom(self.right, 'X1', 'Y0', (1, 1), direct)
-        ]
+        contacts = []
+        contacts.extend(self.top.sew(self.left, 'X0', 'X1', (1, 1), direct))
+        contacts.extend(self.left.sew(self.bottom, 'X0', 'X1', (1, 1), direct))
+        contacts.extend(self.bottom.sew(self.right, 'X0', 'X1', (1, 1), direct))
+        contacts.extend(self.right.sew(self.top, 'X0', 'X1', (1, 1), direct))
+        contacts.extend(self.center.sew(self.top, 'Y1', 'Y0', (1, 1), direct))
+        contacts.extend(self.center.sew(self.left, 'X0', 'Y0', (1, 1), direct))
+        contacts.extend(self.center.sew(self.bottom, 'Y0', 'Y0', (1, 1), direct))
+        contacts.extend(self.center.sew(self.right, 'X1', 'Y0', (1, 1), direct))
+
+        self.contacts = contacts
 
         self._save_new_config((self.top, self.left, self.bottom, self.right, self.center), directory)
-
         self.configured = True
 
     def reconfigure(self, directory=''):
-        super()._check_configured(self)
+        self._check_configured(self)
         direct = f"{directory}/{self.filename}" if directory else self.filename
         self.center.reconfigure(direct)
         self.top.reconfigure(direct)
@@ -265,26 +265,28 @@ class Cylinder(Base):
         super()._check_configured(cylinder)
         direct = f"{directory}/{self.filename}" if directory else self.filename
 
-        return [
-            self.center.sew_geom(cylinder.center.data, ghost_from, ghost_to, ghosts, direct),
-            self.top.sew(cylinder.top, ghost_from, ghost_to, ghosts, direct),
-            self.right.sew(cylinder.right, ghost_from, ghost_to, ghosts, direct),
-            self.bottom.sew(cylinder.bottom, ghost_from, ghost_to, ghosts, direct),
-            self.left.sew(cylinder.left, ghost_from, ghost_to, ghosts, direct),
-        ]
+        contacts = []
+        contacts.extend(self.center.sew(cylinder.center, ghost_from, ghost_to, ghosts, direct))
+        contacts.extend(self.top.sew(cylinder.top, ghost_from, ghost_to, ghosts, direct))
+        contacts.extend(self.right.sew(cylinder.right, ghost_from, ghost_to, ghosts, direct))
+        contacts.extend(self.bottom.sew(cylinder.bottom, ghost_from, ghost_to, ghosts, direct))
+        contacts.extend(self.left.sew(cylinder.left, ghost_from, ghost_to, ghosts, direct))
+
+        return contacts
 
     def sew_par(self, parallelepiped: Parallelepiped, ghost_from: Literal['Z0', 'Z1'], ghost_to: Literal['Z0', 'Z1'],
                 ghosts: tuple[int, int], directory=''):
         super()._check_configured(parallelepiped)
         direct = f"{directory}/{self.filename}" if directory else self.filename
 
-        return [
-            self.center.sew_geom(parallelepiped.data, ghost_from, ghost_to, ghosts, direct),
-            self.top.sew(parallelepiped.data, ghost_from, ghost_to, ghosts, direct),
-            self.right.sew(parallelepiped.data, ghost_from, ghost_to, ghosts, direct),
-            self.bottom.sew(parallelepiped.data, ghost_from, ghost_to, ghosts, direct),
-            self.left.sew(parallelepiped.data, ghost_from, ghost_to, ghosts, direct)
-        ]
+        contacts = []
+        contacts.extend(self.center.sew(parallelepiped.data, ghost_from, ghost_to, ghosts, direct))
+        contacts.extend(self.top.sew(parallelepiped.data, ghost_from, ghost_to, ghosts, direct))
+        contacts.extend(self.right.sew(parallelepiped.data, ghost_from, ghost_to, ghosts, direct))
+        contacts.extend(self.bottom.sew(parallelepiped.data, ghost_from, ghost_to, ghosts, direct))
+        contacts.extend(self.left.sew(parallelepiped.data, ghost_from, ghost_to, ghosts, direct))
+
+        return contacts
 
 
 class Column(Base):
@@ -296,7 +298,7 @@ class Column(Base):
         z = origin[2]
         self.cylinders = []
         for n, i in enumerate(parts):
-            self.cylinders.append(Cylinder(filename=f'{filename}_cyl_{n}', r1=i[1], r2=i[0], h=i[2], h_r=h_r, h_h=h_h,
+            self.cylinders.append(Cylinder(filename=f'{filename}_cyl{n}', r1=i[1], r2=i[0], h=i[2], h_r=h_r, h_h=h_h,
                                            x0=origin[0], y0=origin[1], z0=z))
             z += i[2]
 
@@ -316,7 +318,6 @@ class Column(Base):
         self.contacts = contacts
 
         self._save_new_config(self.cylinders, directory)
-
         self.configured = True
 
     def reconfigure(self, directory=''):
@@ -328,9 +329,9 @@ class Column(Base):
     def add_property(self, cls: type, name: str, where: list[Literal['Z', 'Z0', 'Z1', 'XY']],
                      condition: Condition | None = None):
         for i in where:
-            if i in {'Z', 'Z0'}:
+            if i in ('Z', 'Z0'):
                 self.cylinders[0].add_property(cls, name, ['Z0'], condition)
-            if i in {'Z', 'Z1'}:
+            if i in ('Z', 'Z1'):
                 self.cylinders[-1].add_property(cls, name, ['Z1'], condition)
             if i == 'XY':
                 for cyl in self.cylinders:
@@ -371,12 +372,12 @@ class Platform(Base):
         for i in self.columns:
             sews1.extend(i.sew_par(self.p1, 'Z0', 'Z1', (1, 1), direct))
             sews2.extend(i.sew_par(self.p2, 'Z1', 'Z0', (1, 1), direct))
-            i.add_property(Filler, "RectNoReflectFiller", ['XY'])
+            i.add_property(Filler, RectNoReflectFiller, ['XY'])
             i.add_property(Corrector, f"ForceRectElasticBoundary{DIMS}D", ['XY'])
 
-        self.p1.add_property(Filler, "RectNoReflectFiller", ['X', 'Y', 'Z0'])
+        self.p1.add_property(Filler, RectNoReflectFiller, ['X', 'Y', 'Z0'])
         self.p1.add_property(Corrector, f"ForceRectElasticBoundary{DIMS}D", ['X', 'Y', 'Z0'])
-        self.p2.add_property(Filler, "RectNoReflectFiller", ['X', 'Y', 'Z1'])
+        self.p2.add_property(Filler, RectNoReflectFiller, ['X', 'Y', 'Z1'])
         self.p2.add_property(Corrector, f"ForceRectElasticBoundary{DIMS}D", ['X', 'Y', 'Z1'])
 
         cond1 = Condition("RectNodeMatchConditionNoneOf", "RectNodeMatchConditionInFixedSet")
@@ -416,9 +417,9 @@ class ParallelepipedCylinder(Base):
 
         self.contacts = self.cyl.sew_par(self.par, 'Z1', 'Z0', (1, 1), direct)
 
-        self.par.add_property(Filler, 'RectNoReflectFiller', ['X', 'Y', 'Z1'])
+        self.par.add_property(Filler, RectNoReflectFiller, ['X', 'Y', 'Z1'])
         self.par.add_property(Corrector, f'ForceRectElasticBoundary{DIMS}D', ['X', 'Y', 'Z1'])
-        self.cyl.add_property(Filler, 'RectNoReflectFiller', ['XY', 'Z0'])
+        self.cyl.add_property(Filler, RectNoReflectFiller, ['XY', 'Z0'])
         self.cyl.add_property(Corrector, f'ForceRectElasticBoundary{DIMS}D', ['XY', 'Z0'])
 
         cond = Condition("RectNodeMatchConditionNoneOf", "RectNodeMatchConditionInFixedSet")
@@ -448,9 +449,9 @@ class TwoParCut(Base):
 
         self.contacts = self.par1.sew_geom(self.par2.data, 'Z1', 'Z0', (1, 1), direct)
 
-        self.par1.add_property(Filler, 'RectNoReflectFiller', ['X', 'Y', 'Z0'])
+        self.par1.add_property(Filler, RectNoReflectFiller, ['X', 'Y', 'Z0'])
         self.par1.add_property(Corrector, f'ForceRectElasticBoundary{DIMS}D', ['X', 'Y', 'Z0'])
-        self.par2.add_property(Filler, 'RectNoReflectFiller', ['X', 'Y', 'Z1'])
+        self.par2.add_property(Filler, RectNoReflectFiller, ['X', 'Y', 'Z1'])
         self.par2.add_property(Corrector, f'ForceRectElasticBoundary{DIMS}D', ['X', 'Y', 'Z1'])
 
         if self.par1.data.x.size > self.par2.data.x.size or self.par1.data.y.size > self.par2.data.y.size:
