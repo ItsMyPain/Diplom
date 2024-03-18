@@ -1,4 +1,3 @@
-import subprocess
 from pathlib import Path
 from typing import Sequence, Literal
 
@@ -14,6 +13,7 @@ class Base:
     filename: str
     configured: bool
     path: str | None
+    contacts: list[Contact]
 
     def __init__(self, filename: str, *args, **kwargs):
         self.filename = filename
@@ -24,14 +24,10 @@ class Base:
         if not self.configured or not obj.configured:
             raise Exception(f"Не сконфигурирован: {self.filename}")
 
-    def _check_not_configured(self):
-        if self.configured:
-            raise Exception(f"Попытка обновить состояние, после конфигурации: {self.filename}")
-
-    def _save_new_config(self, configs: Sequence, sews: list[Contact], directory: str):
+    def _save_new_config(self, configs: Sequence, directory: str):
         grids = [f'    @include("{i.path}", "grids")' for i in configs]
         contacts = [f'    @include("{i.path}", "contacts")' for i in configs]
-        contacts.extend([i.to_config() for i in sews])
+        contacts.extend([i.to_config() for i in self.contacts])
 
         with open(MAIN_CONF) as f:
             config = f.read()
@@ -98,16 +94,22 @@ class Parallelepiped(Base):
         self.path = self.data.path
         self.configured = True
 
+    def reconfigure(self, directory=''):
+        self._check_configured(self)
+        self.data.reconfigure(f"{directory}/{self.filename}" if directory else self.filename)
+        self.path = self.data.path
+
     def add_property(self, cls, name: str, where: str | list[str], condition: Condition | None = None):
         self.data.add_property(cls, name, where, condition)
 
     def sew_geom(self, obj: Geometry, ghost_from: str, ghost_to: str, ghosts: tuple[int, int], directory=''):
-        super()._check_configured(obj)
+        self._check_configured(obj)
         return self.data.sew(obj, ghost_from, ghost_to, ghosts,
                              f"{directory}/{self.filename}" if directory else self.filename)
 
-    # def update_config(self):
-    #     self.data.update_config()
+    def contact(self, obj: Geometry, directory=''):
+        self._check_configured(obj)
+        return self.data.contact(obj, f"{directory}/{self.filename}" if directory else self.filename)
 
 
 class Ring(Base):
@@ -141,9 +143,6 @@ class Ring(Base):
         self.data.configure(f"{directory}/{self.filename}" if directory else self.filename)
         self.path = self.data.path
         self.configured = True
-
-    # def update_config(self):
-    #     self.data.update_config()
 
 
 class Cylinder(Base):
@@ -222,7 +221,7 @@ class Cylinder(Base):
         self.right.configure(direct)
         self.left.configure(direct)
 
-        sews = [
+        self.contacts = [
             self.top.sew(self.left, 'X0', 'X1', (1, 1), direct),
             self.left.sew(self.bottom, 'X0', 'X1', (1, 1), direct),
             self.bottom.sew(self.right, 'X0', 'X1', (1, 1), direct),
@@ -233,9 +232,18 @@ class Cylinder(Base):
             self.center.sew_geom(self.right, 'X1', 'Y0', (1, 1), direct)
         ]
 
-        self._save_new_config((self.top, self.left, self.bottom, self.right, self.center), sews, directory)
+        self._save_new_config((self.top, self.left, self.bottom, self.right, self.center), directory)
 
         self.configured = True
+
+    def reconfigure(self, directory=''):
+        super()._check_configured(self)
+        direct = f"{directory}/{self.filename}" if directory else self.filename
+        self.center.reconfigure(direct)
+        self.top.reconfigure(direct)
+        self.bottom.reconfigure(direct)
+        self.right.reconfigure(direct)
+        self.left.reconfigure(direct)
 
     def add_property(self, cls, name: str, where: list[Literal['Z', 'Z0', 'Z1', 'XY']],
                      condition: Condition | None = None):
@@ -278,13 +286,6 @@ class Cylinder(Base):
             self.left.sew(parallelepiped.data, ghost_from, ghost_to, ghosts, direct)
         ]
 
-    # def update_config(self):
-    #     self.center.update_config()
-    #     self.top.update_config()
-    #     self.bottom.update_config()
-    #     self.right.update_config()
-    #     self.left.update_config()
-
 
 class Column(Base):
     cylinders: list[Cylinder]
@@ -305,16 +306,24 @@ class Column(Base):
         for i in self.cylinders:
             i.configure(direct)
 
-        sews = []
+        contacts = []
 
         for i in range(len(self.cylinders) - 1):
-            sews.extend(
+            contacts.extend(
                 self.cylinders[i].sew_cyl(self.cylinders[i + 1], 'Z1', 'Z0', (1, 1), direct)
             )
 
-        self._save_new_config(self.cylinders, sews, directory)
+        self.contacts = contacts
+
+        self._save_new_config(self.cylinders, directory)
 
         self.configured = True
+
+    def reconfigure(self, directory=''):
+        super()._check_configured(self)
+        direct = f"{directory}/{self.filename}" if directory else self.filename
+        for i in self.cylinders:
+            i.reconfigure(direct)
 
     def add_property(self, cls: type, name: str, where: list[Literal['Z', 'Z0', 'Z1', 'XY']],
                      condition: Condition | None = None):
@@ -372,24 +381,25 @@ class Platform(Base):
 
         cond1 = Condition("RectNodeMatchConditionNoneOf", "RectNodeMatchConditionInFixedSet")
         cond1.from_contact(self.p1, sews1, direction='forward', side='Z1', directory=direct)
-        self.p1.add_property(Filler, 'RectNoReflectFiller', 'Z1', cond1)
+        self.p1.add_property(Filler, 'RectNoReflectFillerConditional', 'Z1', cond1)
         self.p1.add_property(Corrector, f"ForceRectElasticBoundary{DIMS}D", 'Z1', cond1)
 
         cond2 = Condition("RectNodeMatchConditionNoneOf", "RectNodeMatchConditionInFixedSet")
         cond2.from_contact(self.p2, sews2, direction='forward', side='Z0', directory=direct)
-        self.p2.add_property(Filler, 'RectNoReflectFiller', 'Z0', cond2)
+        self.p2.add_property(Filler, 'RectNoReflectFillerConditional', 'Z0', cond2)
         self.p2.add_property(Corrector, f"ForceRectElasticBoundary{DIMS}D", 'Z0', cond2)
 
-        sews = sews1 + sews2
+        self.p1.reconfigure(direct)
+        self.p2.reconfigure(direct)
 
-        self._save_new_config((self.p1, self.p2, *self.columns), sews, directory)
+        for i in self.columns:
+            i.reconfigure(direct)
+
+        self.contacts = sews1 + sews2
+
+        self._save_new_config((self.p1, self.p2, *self.columns), directory)
 
         self.configured = True
-
-    # def update_config(self):
-    #     self.main.update_config()
-    #     for i in self.columns:
-    #         i.update_config()
 
 
 class ParallelepipedCylinder(Base):
@@ -404,7 +414,7 @@ class ParallelepipedCylinder(Base):
         self.par.configure(direct)
         self.cyl.configure(direct)
 
-        sews = self.cyl.sew_par(self.par, 'Z1', 'Z0', (1, 1), direct)
+        self.contacts = self.cyl.sew_par(self.par, 'Z1', 'Z0', (1, 1), direct)
 
         self.par.add_property(Filler, 'RectNoReflectFiller', ['X', 'Y', 'Z1'])
         self.par.add_property(Corrector, f'ForceRectElasticBoundary{DIMS}D', ['X', 'Y', 'Z1'])
@@ -412,23 +422,19 @@ class ParallelepipedCylinder(Base):
         self.cyl.add_property(Corrector, f'ForceRectElasticBoundary{DIMS}D', ['XY', 'Z0'])
 
         cond = Condition("RectNodeMatchConditionNoneOf", "RectNodeMatchConditionInFixedSet")
-        cond.from_contact(self.par, sews, direction='forward', side='Z0', directory=direct)
-        self.par.add_property(Filler, 'RectNoReflectFiller', 'Z0', cond)
+        cond.from_contact(self.par, self.contacts, direction='forward', side='Z0', directory=direct)
+        self.par.add_property(Filler, 'RectNoReflectFillerConditional', 'Z0', cond)
         self.par.add_property(Corrector, f"ForceRectElasticBoundary{DIMS}D", 'Z0', cond)
 
-        self.par.configure(direct)
-        self.cyl.configure(direct)
+        self.par.reconfigure(direct)
+        self.cyl.reconfigure(direct)
 
-        self._save_new_config((self.par, self.cyl), sews, directory)
+        self._save_new_config((self.par, self.cyl), directory)
 
         self.configured = True
 
-    # def update_config(self):
-    #     self.par.update_config()
-    #     self.cyl.update_config()
 
-
-class TwoParallelepiped(Base):
+class TwoParCut(Base):
     def __init__(self, filename: str, par1: Parallelepiped, par2: Parallelepiped):
         super().__init__(filename)
         self.par1 = par1
@@ -440,7 +446,7 @@ class TwoParallelepiped(Base):
         self.par1.configure(direct)
         self.par2.configure(direct)
 
-        sews = [self.par1.sew_geom(self.par2.data, 'Z1', 'Z0', (1, 1), direct)]
+        self.contacts = self.par1.sew_geom(self.par2.data, 'Z1', 'Z0', (1, 1), direct)
 
         self.par1.add_property(Filler, 'RectNoReflectFiller', ['X', 'Y', 'Z0'])
         self.par1.add_property(Corrector, f'ForceRectElasticBoundary{DIMS}D', ['X', 'Y', 'Z0'])
@@ -449,23 +455,40 @@ class TwoParallelepiped(Base):
 
         if self.par1.data.x.size > self.par2.data.x.size or self.par1.data.y.size > self.par2.data.y.size:
             cond = Condition("RectNodeMatchConditionNoneOf", "RectNodeMatchConditionInFixedSet")
-            cond.from_contact(self.par1, sews, direction='backward', side='Z1', directory=direct)
-            self.par1.add_property(Filler, 'RectNoReflectFiller', 'Z1', cond)
+            cond.from_contact(self.par1, self.contacts, direction='backward', side='Z1', directory=direct)
+            self.par1.add_property(Filler, 'RectNoReflectFillerConditional', 'Z1', cond)
             self.par1.add_property(Corrector, f"ForceRectElasticBoundary{DIMS}D", 'Z1', cond)
 
         if self.par1.data.x.size < self.par2.data.x.size or self.par1.data.y.size < self.par2.data.y.size:
             cond = Condition("RectNodeMatchConditionNoneOf", "RectNodeMatchConditionInFixedSet")
-            cond.from_contact(self.par2, sews, direction='forward', side='Z0', directory=direct)
-            self.par2.add_property(Filler, 'RectNoReflectFiller', 'Z0', cond)
+            cond.from_contact(self.par2, self.contacts, direction='forward', side='Z0', directory=direct)
+            self.par2.add_property(Filler, 'RectNoReflectFillerConditional', 'Z0', cond)
             self.par2.add_property(Corrector, f"ForceRectElasticBoundary{DIMS}D", 'Z0', cond)
+
+        self.par1.reconfigure(direct)
+        self.par2.reconfigure(direct)
+
+        self._save_new_config((self.par1, self.par2), directory)
+
+        self.configured = True
+
+
+class TwoParContact(Base):
+    par1: Parallelepiped
+    par2: Parallelepiped
+
+    def __init__(self, filename: str, p1: Parallelepiped, p2: Parallelepiped):
+        super().__init__(filename)
+        self.par1 = p1
+        self.par2 = p2
+
+    def configure(self, directory=''):
+        direct = f"{directory}/{self.filename}" if directory else self.filename
 
         self.par1.configure(direct)
         self.par2.configure(direct)
 
-        self._save_new_config((self.par1, self.par2), sews, directory)
+        self.contacts = [self.par1.contact(self.par2.data, direct)]
 
+        self._save_new_config((self.par1, self.par2), directory)
         self.configured = True
-
-    # def update_config(self):
-    #     self.par1.update_config()
-    #     self.par2.update_config()
