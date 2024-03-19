@@ -27,20 +27,27 @@ def f1(t):
     return np.exp(-1e7 * np.power(t - 0.002, 2)) - np.exp(-1e7 * np.power(t - 0.003, 2))
 
 
+def riker(f, t0, t):
+    return (1 - 2 * np.power(np.pi * f * (t - t0), 2)) * np.exp(-np.power(np.pi * f * (t - t0), 2))
+
+
 def generate_impulse(file):
-    dt = 2.5e-05
-    times = np.arange(0, 0.02, dt)
-    values = f1(times)
+    dt = 5e-06
+    times = np.arange(0, 0.01, dt)
+    print(times.shape[0])
+    # values = f1(times)
+    values = riker(1500, 0.00075, times)
     write(times, values, file)
 
 
 def show(file):
     times, values = read(file)
     plt.plot(times, values)
+    plt.grid()
     plt.show()
 
 
 if __name__ == '__main__':
-    generate_impulse('test_impulse.txt')
-    show('test_impulse.txt')
+    generate_impulse('riker_impulse.txt')
+    show('riker_impulse.txt')
     # show('source_rect_15Hz.txt')

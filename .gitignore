@@ -1,3 +1,7 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
 /rect
 /rect_new
 /.idea
@@ -9,6 +13,7 @@
 /contact/*
 /contact_configs/*
 /result/*
+
 
 !/configs/template2D.conf
 !/configs/template3D.conf

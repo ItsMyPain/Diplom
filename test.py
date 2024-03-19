@@ -60,16 +60,19 @@ def par_cyl():
 
 def plat():
     DPL = 15
-    parts = [(10, 5, 5), (5, 5, 10)]
+    parts = [(10, 5, 5), (5, 5, 15)]
     origins = [(DPL, DPL, 5), (DPL, -DPL, 5), (-DPL, DPL, 5), (-DPL, -DPL, 5)]
     cols = []
     for i, origin in enumerate(origins):
-        cols.append(Column(f'col{i}', parts, origin=origin, h_r=0.25, h_h=0.25))
+        cols.append(Column(f'col{i}', parts, origin=origin, h_r=0.2, h_h=0.2))
 
-    cols[0].cylinders[0].top.add_impulse("source_rect_15Hz.txt", x=0.5, y=0.99, z=0.5)
+    # cols[0].cylinders[0].top.add_impulse("riker_impulse.txt", x=0.5, y=0.99, z=0.5)
 
-    p1 = Parallelepiped('P1', lg=70, w=70, h=5, h_l=0.5, h_w=0.5, h_h=0.5)
-    p2 = Parallelepiped('P2', lg=70, w=70, h=5, h_l=0.5, h_w=0.5, h_h=0.5, z0=20)
+    p1 = Parallelepiped('P1', lg=70, w=70, h=5, h_l=0.2, h_w=0.2, h_h=0.2)
+    p2 = Parallelepiped('P2', lg=70, w=70, h=5, h_l=0.2, h_w=0.2, h_h=0.2, z0=25)
+
+    p1.data.add_impulse("riker_impulse.txt", x=0.5, y=0.5, z=0.5)
+
     pl = Platform('pl1', p1, p2, cols)
 
     pl.configure()

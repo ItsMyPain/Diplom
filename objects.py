@@ -45,12 +45,14 @@ class Base:
         if not self.configured:
             raise Exception(f"Не конфигурирован: {self.filename}")
 
-        helper.to_file()
+        # helper.to_file()
         comm = f"{BUILD_COMM} {self.path}"
-        print(comm)
+        # print(comm)
         # proc = subprocess.run(comm, shell=True)
         # if proc.returncode != 0:
         #     raise Exception(comm)
+        helper.add_command(comm)
+        helper.to_file()
 
 
 class Parallelepiped(Base):
