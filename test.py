@@ -1,7 +1,6 @@
 import os
 
-from geometry import helper
-from objects import *
+from rect_api.objects import *
 
 R_bottom = 30
 R_top = 20
@@ -17,9 +16,9 @@ CORRECTOR = f'ForceRectElasticBoundary{DIMS}D'
 def par_par():
     h = 0.5
     p1 = Parallelepiped('P1', lg=10, w=10, h=10, h_l=h, h_w=h, h_h=h)
-    p2 = Parallelepiped('P2', lg=20, w=20, h=20, z0=10, h_l=h, h_w=h, h_h=h)
+    p2 = Parallelepiped('P2', lg=30, w=30, h=20, z0=10, h_l=h, h_w=h, h_h=h)
 
-    p1.data.add_impulse("test_impulse.txt", x=0.5, y=0.5, z=0.5)
+    p2.data.add_impulse("test_impulse.txt", x=0.5, y=0.7, z=0.5)
 
     p3 = TwoParCut('P3', p1, p2)
     p3.configure()
@@ -48,10 +47,10 @@ def col():
 
 
 def par_cyl():
-    c1 = Cylinder('C1', r1=10, h=20, h_r=0.3, h_h=0.3)
-    p1 = Parallelepiped('P1', lg=30, w=30, h=20, z0=20, h_l=0.5, h_w=0.5, h_h=0.5)
+    c1 = Cylinder('C1', r1=10, h=20, h_r=0.5, h_h=0.5)
+    p1 = Parallelepiped('P1', lg=30, w=30, h=10, z0=20, h_l=0.6, h_w=0.6, h_h=0.6)
 
-    c1.left.add_impulse("test_impulse.txt", x=0.5, y=0.7, z=0.5)
+    p1.data.add_impulse("test_impulse.txt", x=0.5, y=0.7, z=0.5)
 
     t1 = ParallelepipedCylinder('T1', p1, c1)
     t1.configure()
@@ -71,7 +70,7 @@ def plat():
     p1 = Parallelepiped('P1', lg=70, w=70, h=5, h_l=0.2, h_w=0.2, h_h=0.2)
     p2 = Parallelepiped('P2', lg=70, w=70, h=5, h_l=0.2, h_w=0.2, h_h=0.2, z0=25)
 
-    p1.data.add_impulse("riker_impulse.txt", x=0.5, y=0.5, z=0.5)
+    p1.data.add_impulse("riker_impulse.txt", x=0.5, y=0.7, z=0.5)
 
     pl = Platform('pl1', p1, p2, cols)
 
@@ -80,12 +79,12 @@ def plat():
 
 
 def par_par_contact():
-    lg = 30
+    lg = 5
     w = 30
-    h = 20
+    h = 30
     h_l = 0.5
-    h_w = 0.5
-    h_h = 0.5
+    h_w = 0.3
+    h_h = 0.3
     p1 = Parallelepiped('P1', lg=lg, w=w, h=h, h_l=h_l, h_w=h_w, h_h=h_h)
     p2 = Parallelepiped('P2', lg=lg, w=w, h=h, h_l=h_l, h_w=h_w, h_h=h_h, z0=h)
     p1.data.add_impulse("test_impulse.txt", x=0.5, y=0.5, z=0.5)
@@ -97,9 +96,9 @@ def par_par_contact():
 
 if __name__ == '__main__':
     os.system("rm result/*.*")
-    # par_par()
+    par_par()
     # cyl()
     # col()
     # par_cyl()
-    plat()
+    # plat()
     # par_par_contact()

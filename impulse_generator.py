@@ -32,7 +32,7 @@ def riker(f, t0, t):
 
 
 def generate_impulse(file):
-    dt = 5e-06
+    dt = 1e-06
     times = np.arange(0, 0.01, dt)
     print(times.shape[0])
     # values = f1(times)
