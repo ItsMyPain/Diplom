@@ -1,7 +1,5 @@
 from typing import Sequence
 
-import numpy as np
-
 from .config_parts import *
 from .geometry import Geometry, Axe, helper
 
@@ -14,8 +12,9 @@ class Base:
     path: str | None
     contacts: list[Contact]
 
-    def __init__(self, filename: str, *args, **kwargs):
+    def __init__(self, filename: str, material: Material, *args, **kwargs):
         self.filename = filename
+        self.material = material
         self.configured = False
         self.path = None
 
@@ -47,6 +46,32 @@ class Base:
         comm = f"{BUILD_COMM} {self.path}"
         helper.add_command(comm)
         helper.to_file()
+
+
+class NewParallelepiped(Base):
+    data: Geometry
+
+    def __init__(self, filename: str, material: Material, lg, w, h, h_l=None, h_w=None, h_h=None, x0=0.0, y0=0.0,
+                 z0=0.0):
+        super().__init__(filename, material)
+        if h_l is None:
+            h_l = alpha * lg
+        if h_w is None:
+            h_w = alpha * w
+        if h_h is None:
+            h_h = alpha * h
+
+        size_x = int(lg / h_l) + 1
+        size_y = int(w / h_w) + 1
+        size_z = int(h / h_h) + 1
+
+        self.data = Geometry(
+            filename, material,
+            Factory(RectGridFactory, Axe(size_x), Axe(size_y), Axe(size_z),
+                    origin=(x0, y0, z0),
+                    spacing=(h_l, h_w, h_h)),
+            Schema(ElasticRectSchema3DRusanov3)
+        )
 
 
 class Parallelepiped(Base):

@@ -1,48 +1,25 @@
-import numpy as np
-
 from .config_parts import *
 
 
-class Axe:
-    data: np.array
-    size: int
-    path: str | None
-
-    def __init__(self, data: np.array, size: int):
-        if len(data.shape) > 1:
-            raise Exception(f"Неправильная размерность: {data.shape}")
-        self.data = data
-        self.size = size
-        self.path = None
-
-    def save(self, filename: str):
-        self.path = filename
-        self.data.astype('f').tofile(filename)
-
-
 class Geometry:
-    x: Axe
-    y: Axe
-    z: Axe
     filename: str
-    path: str | None
-    configured: bool
+    material: Material
+    factory: Factory
+    schema: Schema
     impulse: None | Impulse
     fillers: list[Filler]
     correctors: list[Corrector]
-    sewed: set[tuple[int, int]]
 
-    def __init__(self, x: Axe, y: Axe, z: Axe, filename: str, impulse=None, fillers=None, correctors=None):
-        if x.data.shape != y.data.shape or z.data.shape != y.data.shape:
-            raise Exception("Не согласующиеся длины")
-        self.x = x
-        self.y = y
-        self.z = z
+    path: str | None
+    configured: bool
+
+    def __init__(self, filename: str, material: Material, factory: Factory, schema: Schema,
+                 impulse=None, fillers=None, correctors=None):
         self.filename = filename
-        self.path = None
-        self.configured = False
+        self.material = material
+        self.factory = factory
+        self.schema = schema
         self.impulse = impulse
-        self.sewed = set()
         if fillers is None:
             fillers = []
         if correctors is None:
@@ -50,8 +27,11 @@ class Geometry:
         self.fillers = fillers
         self.correctors = correctors
 
+        self.path = None
+        self.configured = False
+
     def add_impulse(self, filename: str, x: int | float = None, y: int | float = None, z: int | float = None):
-        base = (self.x.size, self.y.size, self.z.size)
+        base = self.factory.size
         old = [x, y, z]
         new = []
         for i, j in zip(base, old):
@@ -84,9 +64,9 @@ class Geometry:
     def save(self, directory=''):
         path = f'{BINS_DIR}/{directory}'
         Path(path).mkdir(parents=True, exist_ok=True)
-        self.x.save(f'{path}/{self.filename}_x.bin')
-        self.y.save(f'{path}/{self.filename}_y.bin')
-        self.z.save(f'{path}/{self.filename}_z.bin')
+        self.factory.x.save(f'{path}/{self.filename}_x.bin')
+        self.factory.y.save(f'{path}/{self.filename}_y.bin')
+        self.factory.z.save(f'{path}/{self.filename}_z.bin')
 
     def configure(self, directory='', reconfigure=False):
         if not reconfigure:
@@ -94,8 +74,9 @@ class Geometry:
 
         args = [
             self.filename,
-            self.x.size, self.y.size, self.z.size,
-            self.x.path, self.y.path, self.z.path,
+            self.material.to_config(),
+            self.factory.to_config(),
+            self.schema.to_config(),
             '\n'.join([i.to_config() for i in self.fillers])
         ]
 

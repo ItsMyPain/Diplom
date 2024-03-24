@@ -1,7 +1,34 @@
 from pathlib import Path
 from typing import Literal
 
+import numpy as np
+
 from .consts import *
+
+
+def pprint(data):
+    if isinstance(data, (list, tuple)):
+        return ', '.join([str(i) for i in data])
+    else:
+        return str(data)
+
+
+class Axe:
+    size: int
+    data: np.ndarray | None
+    path: str | None
+
+    def __init__(self, size: int, data: np.array = None):
+        if len(data.shape) > 1:
+            raise Exception(f"Неправильная размерность: {data.shape}")
+        self.data = data
+        self.size = size
+        self.path = None
+
+    def save(self, filename: str):
+        if self.data is not None:
+            self.path = filename
+            self.data.astype('f').tofile(filename)
 
 
 class Helper:
@@ -21,6 +48,73 @@ class Helper:
 
 
 helper = Helper()
+
+
+class Material:
+    c1: float
+    c2: float
+    rho: float
+
+    def __init__(self, c1: float, c2: float, rho: float):
+        self.c1 = c1
+        self.c2 = c2
+        self.rho = rho
+
+    def to_config(self) -> str:
+        attrs = []
+        for i in vars(self):
+            attrs.append(f'{i} = {pprint(getattr(self, i))}')
+        attrs = '\n        '.join(attrs)
+        return f"""        [material]
+            {attrs}
+        [/material]"""
+
+
+class Factory:
+    name: str
+    size: tuple[int, int, int]
+    origin: tuple[float, float, float] | None
+    spacing: tuple[float, float, float] | None
+    path_x: str | None
+    path_y: str | None
+    path_z: str | None
+
+    def __init__(self, name: str, x: Axe, y: Axe, z: Axe, origin: tuple[float, float, float] = None,
+                 spacing: tuple[float, float, float] = None):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.name = name
+        self.size = (x.size, y.size, z.size)
+        if origin is not None:
+            self.origin = origin
+        if spacing is not None:
+            self.spacing = spacing
+
+    def to_config(self) -> str:
+        attrs = []
+        for i in vars(self):
+            attrs.append(f'{i} = {pprint(getattr(self, i))}')
+        attrs = '\n        '.join(attrs)
+        return f"""        [factory]
+            {attrs}
+        [/factory]"""
+
+
+class Schema:
+    name: str
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def to_config(self) -> str:
+        attrs = []
+        for i in vars(self):
+            attrs.append(f'{i} = {pprint(getattr(self, i))}')
+        attrs = '\n        '.join(attrs)
+        return f"""        [schema]
+            {attrs}
+        [/schema]"""
 
 
 class Contact:
@@ -59,7 +153,7 @@ class Contact:
     def to_config(self) -> str:
         attrs = []
         for i in vars(self):
-            attrs.append(f'{i} = {getattr(self, i)}')
+            attrs.append(f'{i} = {pprint(getattr(self, i))}')
         attrs = '\n        '.join(attrs)
         return f"""    [contact]
         {attrs}
