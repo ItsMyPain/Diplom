@@ -62,8 +62,8 @@ class Helper:
                 Contact(RectGridInterpolationCorrector, grid2.id, grid1.id, interpolation_file=output2,
                         predictor_flag=False, corrector_flag=True, axis=1)]
 
-    def sew_parcyl(self, par: 'Parallelepiped', cyl: 'Cylinder', ghost_from: Literal['Z0', 'Z1'],
-                   ghost_to: Literal['Z0', 'Z1'], ghosts: tuple[int, int], directory: str):
+    def sew_par_cyl(self, par: 'Parallelepiped', cyl: 'Cylinder', ghost_from: Literal['Z0', 'Z1'],
+                    ghost_to: Literal['Z0', 'Z1'], ghosts: tuple[int, int], directory: str):
         self._check_configured(par)
         self._check_configured(cyl)
 
@@ -73,6 +73,22 @@ class Helper:
         contacts.extend(self.sew(par.grid, par.path, cyl.right, cyl.path, ghost_from, ghost_to, ghosts, directory))
         contacts.extend(self.sew(par.grid, par.path, cyl.bottom, cyl.path, ghost_from, ghost_to, ghosts, directory))
         contacts.extend(self.sew(par.grid, par.path, cyl.left, cyl.path, ghost_from, ghost_to, ghosts, directory))
+
+        return contacts
+
+    def sew_cyl_cyl(self, cyl1: 'Cylinder', cyl2: 'Cylinder', ghost_from: Literal['Z0', 'Z1'],
+                    ghost_to: Literal['Z0', 'Z1'], ghosts: tuple[int, int], directory: str):
+        self._check_configured(cyl1)
+        self._check_configured(cyl2)
+
+        contacts = []
+        contacts.extend(
+            self.sew(cyl1.center, cyl1.path, cyl2.center, cyl2.path, ghost_from, ghost_to, ghosts, directory))
+        contacts.extend(self.sew(cyl1.top, cyl1.path, cyl2.top, cyl2.path, ghost_from, ghost_to, ghosts, directory))
+        contacts.extend(self.sew(cyl1.right, cyl1.path, cyl2.right, cyl2.path, ghost_from, ghost_to, ghosts, directory))
+        contacts.extend(
+            self.sew(cyl1.bottom, cyl1.path, cyl2.bottom, cyl2.path, ghost_from, ghost_to, ghosts, directory))
+        contacts.extend(self.sew(cyl1.left, cyl1.path, cyl2.left, cyl2.path, ghost_from, ghost_to, ghosts, directory))
 
         return contacts
 
@@ -186,6 +202,14 @@ class Base:
 
         self.reconfigure()
         self.configured = True
+
+    def build(self):
+        if not self.configured:
+            raise Exception(f"Не конфигурирован: {self.id}")
+
+        comm = f"{BUILD_COMM} {self.path}"
+        helper.add_command(comm)
+        helper.to_file()
 
 
 class Parallelepiped(Base):

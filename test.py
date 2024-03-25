@@ -1,7 +1,5 @@
 import os
 
-from rect_api.objects import *
-
 R_bottom = 30
 R_top = 20
 H0 = 10

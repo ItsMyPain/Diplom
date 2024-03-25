@@ -1,7 +1,5 @@
 import os
 
-from rect_api.objects import *
-
 H_R = 0.8
 H_H = 0.8
 
