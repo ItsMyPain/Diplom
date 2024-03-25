@@ -9,13 +9,6 @@ AXES = {'X': 0, 'Y': 1, 'Z': 2}
 class BaseConfig:
     indent: int = 0
 
-    @staticmethod
-    def _print(data):
-        if isinstance(data, (list, tuple)):
-            return
-        else:
-            return str(data)
-
     def to_config(self) -> str:
         attrs = []
         for i, j in vars(self).items():

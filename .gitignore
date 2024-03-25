@@ -5,14 +5,8 @@ __pycache__/
 /rect
 /rect_new
 /.idea
-/bins/*
-/boundary/*
-/configs/*
-/interpolation/*
-/interpolation_configs/*
-/contact/*
-/contact_configs/*
 /result/*
+/projects/*
 
 
 !/configs/template2D.conf

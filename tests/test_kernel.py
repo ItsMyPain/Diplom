@@ -10,10 +10,12 @@ class TestKernel:
         mat = Material(2850.0, 1650.0, 2400.0)
         par = Parallelepiped('P1', mat, lg=10, w=10, h=20, h_lg=0.5, h_w=0.5, h_h=0.5)
 
-        par.configure(directory='P1')
+        par.configure('.')
 
         par.add_filler('RectNoReflectFiller', ['X', 'Y', 'Z0'])
         par.add_corrector('ForceRectElasticBoundary3D', ['X', 'Y', 'Z0'])
+
+        par.grid.add_impulse('test_impulse.txt', x=0.5, y=0.5, z=0.5)
 
         par.reconfigure()
 
@@ -31,10 +33,12 @@ class TestKernel:
         mat = Material(2850.0, 1650.0, 2400.0)
         prism = Prism('P2', mat, lg_d=20, w_d=20, lg_u=10, w_u=10, h=20, h_lg=0.5, h_w=0.5, h_h=0.5)
 
-        prism.configure(directory='P2')
+        prism.configure('.')
 
         prism.add_filler('RectNoReflectFiller', ['X', 'Y', 'Z0'])
         prism.add_corrector('ForceRectElasticBoundary3D', ['X', 'Y', 'Z0'])
+
+        prism.grid.add_impulse('test_impulse.txt', x=0.5, y=0.5, z=0.5)
 
         prism.reconfigure()
 

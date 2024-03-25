@@ -2,6 +2,16 @@ from new.config import *
 
 
 class TestConfig:
+
+    def test_node(self):
+        node = Node("test_node")
+        conf = node.to_config()
+        need = """        [node]
+            name = test_node
+        [/node]"""
+
+        assert conf == need
+
     def test_material(self):
         mat = Material(1.21, 3.15, 5.55)
         conf = mat.to_config()
@@ -10,6 +20,14 @@ class TestConfig:
             c2 = 3.15
             rho = 5.55
         [/material]"""
+
+        assert conf == need
+
+    def test_material_node(self):
+        mat_node = Material_Node()
+        conf = mat_node.to_config()
+        need = """        [material_node]
+        [/material_node]"""
 
         assert conf == need
 
@@ -93,7 +111,8 @@ class TestConfig:
         assert conf == need
 
     def test_fillers(self):
-        fillers = Fillers([Filler('test_name', 0, 1), Filler('test_name2', 1, 0)])
+        cond = Condition('test_name1', 'test_name2', 'test_nodes')
+        fillers = Fillers([Filler('test_name', 0, 1), Filler('test_name2', 1, 0, cond)])
         conf = fillers.to_config()
         need = """        [fillers]
             [filler]
@@ -105,6 +124,15 @@ class TestConfig:
                 name = test_name2
                 axis = 1
                 side = 0
+                [condition]
+                    name = test_name1
+                    [conditions]
+                        [condition]
+                            name = test_name2
+                            nodes_file = test_nodes
+                        [/condition]
+                    [/conditions]
+                [/condition]
             [/filler]
         [/fillers]"""
 
@@ -162,7 +190,8 @@ class TestConfig:
         assert conf == need
 
     def test_correctors(self):
-        correctors = Correctors([Corrector('test_name', 0, 1), Corrector('test_name2', 1, 0)])
+        cond = Condition('test_name1', 'test_name2', 'test_nodes')
+        correctors = Correctors([Corrector('test_name', 0, 1), Corrector('test_name2', 1, 0, cond)])
         conf = correctors.to_config()
         need = """        [correctors]
             [corrector]
@@ -174,6 +203,15 @@ class TestConfig:
                 name = test_name2
                 axis = 1
                 side = 0
+                [condition]
+                    name = test_name1
+                    [conditions]
+                        [condition]
+                            name = test_name2
+                            nodes_file = test_nodes
+                        [/condition]
+                    [/conditions]
+                [/condition]
             [/corrector]
         [/correctors]"""
 
@@ -239,6 +277,14 @@ class TestConfig:
 
         assert conf == need
 
+    def test_include_grids(self):
+        include = IncludeGrids(['test1', 'test2'])
+        conf = include.to_config()
+        need = """    @include("test1", "grids")
+    @include("test2", "grids")"""
+
+        assert conf == need
+
     def test_grids(self):
         node1 = Node('ElasticMetaNode3D')
         material1 = Material(2850.0, 1650.0, 2400.0)
@@ -257,9 +303,13 @@ class TestConfig:
         schema2 = Schema('ElasticCurveSchema3DRusanov3')
         grid2 = Grid('test_name', node2, material2, factory2, schema2)
 
-        grids = Grids([grid1, grid2])
+        include = IncludeGrids(['test1/test1.conf', 'test2/test2.conf'])
+
+        grids = Grids([grid1, grid2], include_grids=include)
         conf = grids.to_config()
         need = """[grids]
+    @include("test1/test1.conf", "grids")
+    @include("test2/test2.conf", "grids")
     [grid]
         id = test_name
         [node]
@@ -340,7 +390,7 @@ class TestConfig:
 
     def test_contact(self):
         cont = Contact('test_name', 'grid1', 'grid2', interpolation_file='interpolation_file',
-                       predictor_flag=True, corrector_flag=False, axis=0, contact_file='contact_file')
+                       predictor_flag=True, corrector_flag=False, axis=0)
 
         conf = cont.to_config()
         need = """    [contact]
@@ -348,7 +398,6 @@ class TestConfig:
         grid1 = grid1
         grid2 = grid2
         interpolation_file = interpolation_file
-        contact_file = contact_file
         predictor_flag = true
         corrector_flag = false
         axis = 0
@@ -356,15 +405,38 @@ class TestConfig:
 
         assert conf == need
 
+        cont = Contact('test_name', 'grid1', 'grid2', contact_file='contact_file')
+
+        conf = cont.to_config()
+        need = """    [contact]
+        name = test_name
+        grid1 = grid1
+        grid2 = grid2
+        contact_file = contact_file
+    [/contact]"""
+
+        assert conf == need
+
+    def test_include_contacts(self):
+        include = IncludeContacts(['test1', 'test2'])
+        conf = include.to_config()
+        need = """    @include("test1", "contacts")
+    @include("test2", "contacts")"""
+
+        assert conf == need
+
     def test_contacts(self):
+        include = IncludeContacts(['test1/test1.conf', 'test2/test2.conf'])
         contacts = Contacts([
             Contact('test_name', 'grid1', 'grid2', interpolation_file='interpolation_file',
                     predictor_flag=True, corrector_flag=False, axis=0, contact_file='contact_file'),
             Contact('test_name', 'grid1', 'grid2', interpolation_file='interpolation_file',
                     predictor_flag=True, corrector_flag=False, axis=0, contact_file='contact_file')
-        ])
+        ], include_contacts=include)
         conf = contacts.to_config()
         need = """[contacts]
+    @include("test1/test1.conf", "contacts")
+    @include("test2/test2.conf", "contacts")
     [contact]
         name = test_name
         grid1 = grid1
