@@ -3,7 +3,6 @@ from pathlib import Path
 import numpy as np
 
 from .config import *
-from .consts import *
 
 directions_sew = Literal['X0', 'X1', 'Y0', 'Y1', 'Z0', 'Z1']
 directions_boundary_cyl = Literal['XY', 'Z', 'Z0', 'Z1']
@@ -24,6 +23,11 @@ class Helper:
             f.write('\n'.join(self.commands))
         print(PREPARE_ALL)
 
+    @staticmethod
+    def _check_configured(obj):
+        if not obj.configured:
+            raise Exception("Объект не сконфигурирован")
+
     def sew(self, grid1: Grid, grid1_path: str, grid2: Grid, grid2_path: str, ghost_from: directions_sew,
             ghost_to: directions_sew, ghosts: tuple[int, int], directory: str):
         main_config = f'"{grid1_path}"'
@@ -35,7 +39,7 @@ class Helper:
         output1 = f'"{directory}/{INTERP_DIR}/forward_{grid1.id}_{grid2.id}.txt"'
         output2 = f'"{directory}/{INTERP_DIR}/backward_{grid1.id}_{grid2.id}.txt"'
 
-        with open(f'{TEMPLATE_INTERP_CFG}') as f:
+        with open(TEMPLATE_INTERP_CFG) as f:
             config = f.read()
 
         config = config.format(grid1.id, grid2.id, main_config, obj_config,
@@ -58,11 +62,65 @@ class Helper:
                 Contact(RectGridInterpolationCorrector, grid2.id, grid1.id, interpolation_file=output2,
                         predictor_flag=False, corrector_flag=True, axis=1)]
 
+    def sew_parcyl(self, par: 'Parallelepiped', cyl: 'Cylinder', ghost_from: Literal['Z0', 'Z1'],
+                   ghost_to: Literal['Z0', 'Z1'], ghosts: tuple[int, int], directory: str):
+        self._check_configured(par)
+        self._check_configured(cyl)
+
+        contacts = []
+        contacts.extend(self.sew(par.grid, par.path, cyl.center, cyl.path, ghost_from, ghost_to, ghosts, directory))
+        contacts.extend(self.sew(par.grid, par.path, cyl.top, cyl.path, ghost_from, ghost_to, ghosts, directory))
+        contacts.extend(self.sew(par.grid, par.path, cyl.right, cyl.path, ghost_from, ghost_to, ghosts, directory))
+        contacts.extend(self.sew(par.grid, par.path, cyl.bottom, cyl.path, ghost_from, ghost_to, ghosts, directory))
+        contacts.extend(self.sew(par.grid, par.path, cyl.left, cyl.path, ghost_from, ghost_to, ghosts, directory))
+
+        return contacts
+
+    def cut_boundary(self, grid: Grid, contacts: list[Contact], direction: Literal['forward', 'backward'],
+                     side: Literal['Z1', 'Z0'], directory='') -> Condition:
+        path = f"{directory}/{grid.id}/{BOUNDARY_DIR}"
+        Path(path).mkdir(parents=True, exist_ok=True)
+        nodes_file = f"{path}/erased_nodes.txt"
+
+        if side == 'Z1':
+            z = (grid.factory.size[2] - 1, grid.factory.size[2], grid.factory.size[2] + 1)
+        else:
+            z = (0, -1, -2)
+        z = ' '.join(map(str, z))
+
+        input_files = []
+        for contact in contacts:
+            if ((contact.grid1 == grid.id and direction == 'backward') or (
+                    contact.grid2 == grid.id and direction == 'forward')) \
+                    and hasattr(contact, 'interpolation_file'):
+                input_files.append(contact.interpolation_file[1:-1])
+        input_files = ' '.join(input_files)
+
+        self.add_command(f"python3 {BOUNDARY_CUTTER} {nodes_file} '{z}' '{input_files}'")
+
+        return Condition(RectNodeMatchConditionNoneOf, RectNodeMatchConditionInFixedSet, nodes_file)
+
     def contact(self, grid1: Grid, grid2: Grid, directory: str):
+        Path(f"{directory}/{CONTACT_DIR}").mkdir(parents=True, exist_ok=True)
         output = f'"{directory}/{CONTACT_DIR}/{grid1.id}_{grid2.id}.txt"'
 
-        with open(f'{CONTACT_CFG_DIR}/{CONTACT_CFG}') as f:
+        with open(TEMPLATE_CONTACT_CFG) as f:
             config = f.read()
+
+        config = config.format(grid1.id, grid2.id, output, GlueRectElasticContact,
+                               grid1.factory.to_config()[18:-17], grid2.factory.to_config()[18:-17])
+
+        Path(f"{directory}/{CONTACT_CFG_DIR}").mkdir(parents=True, exist_ok=True)
+        config_filename = f"{directory}/{CONTACT_CFG_DIR}/{grid1.id}_{grid2.id}.cfg"
+
+        with open(config_filename, 'w') as f:
+            f.write(config)
+
+        comm = f"{CONTACT_COMM} {config_filename}"
+        self.add_command(comm)
+
+        return Contact(GlueRectElasticContact, grid1.id, grid2.id, contact_file=output)
+
 
 helper = Helper()
 
@@ -95,6 +153,7 @@ class Base:
     path: str | None
     grids: Grids
     contacts: Contacts
+    include: list[str]
 
     def __init__(self, id: str):
         self.id = id
@@ -102,6 +161,7 @@ class Base:
         self.path = None
         self.grids = Grids()
         self.contacts = Contacts()
+        self.include = []
 
     def save(self, directory: str):
         pass
@@ -119,6 +179,7 @@ class Base:
             f.write(config)
 
     def configure(self, directory: str):
+        directory = f"{directory}/{self.id}"
         Path(directory).mkdir(parents=True, exist_ok=True)
         self.path = f"{directory}/{self.id}.conf"
         self.save(directory)
@@ -132,6 +193,16 @@ class Parallelepiped(Base):
 
     def __init__(self, id: str, material: Material, lg, w, h, h_lg, h_w, h_h, x0=0.0, y0=0.0, z0=0.0):
         super().__init__(id)
+
+        self.lg = lg
+        self.w = w
+        self.h = h
+        self.h_lg = h_lg
+        self.h_w = h_w
+        self.h_h = h_h
+        self.x0 = x0
+        self.y0 = y0
+        self.z0 = z0
 
         size_x = int(lg / h_lg) + 1
         size_y = int(w / h_w) + 1
@@ -172,9 +243,6 @@ class Prism(Base):
     def __init__(self, id: str, material: Material, lg_d, w_d, lg_u, w_u, h, h_lg, h_w, h_h, x0=0.0, y0=0.0, z0=0.0):
         super().__init__(id)
 
-        self.x0 = x0
-        self.y0 = y0
-        self.z0 = z0
         self.lg_d = lg_d
         self.w_d = w_d
         self.lg_u = lg_u
@@ -183,6 +251,9 @@ class Prism(Base):
         self.h_lg = h_lg
         self.h_w = h_w
         self.h_h = h_h
+        self.x0 = x0
+        self.y0 = y0
+        self.z0 = z0
 
         self.size_x = int(min(lg_d, lg_u) / h_lg) + 1
         self.size_y = int(min(w_d, w_u) / h_w) + 1
@@ -370,7 +441,6 @@ class Cylinder(Base):
 
         self.grids = Grids([self.center, self.top, self.bottom, self.right, self.left])
         self.contacts = Contacts(contacts)
-        helper.to_file()
 
     def add_filler(self, name: str, where: list[directions_boundary_cyl], condition: Condition | None = None):
         for i in where:
@@ -380,6 +450,7 @@ class Cylinder(Base):
                 self.bottom.add_filler(name, 'Y1', condition)
                 self.right.add_filler(name, 'Y1', condition)
             else:
+                i: Literal['Z', 'Z0', 'Z1']
                 self.top.add_filler(name, i, condition)
                 self.left.add_filler(name, i, condition)
                 self.bottom.add_filler(name, i, condition)
@@ -394,6 +465,7 @@ class Cylinder(Base):
                 self.bottom.add_corrector(name, 'Y1', condition)
                 self.right.add_corrector(name, 'Y1', condition)
             else:
+                i: Literal['Z', 'Z0', 'Z1']
                 self.top.add_corrector(name, i, condition)
                 self.left.add_corrector(name, i, condition)
                 self.bottom.add_corrector(name, i, condition)

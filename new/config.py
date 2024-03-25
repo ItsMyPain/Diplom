@@ -1,6 +1,6 @@
 from typing import Literal
 
-from new.consts import DIMS
+from .consts import *
 
 directions_boundary = Literal['X', 'X0', 'X1', 'Y', 'Y0', 'Y1', 'Z', 'Z0', 'Z1']
 AXES = {'X': 0, 'Y': 1, 'Z': 2}
@@ -24,12 +24,16 @@ class BaseConfig:
                     continue
                 if issubclass(j[0].__class__, BaseConfig):
                     for k in j:
-                        attrs.append(k.to_config())
+                        txt = k.to_config()
+                        if txt:
+                            attrs.append(txt)
                 else:
                     attrs.append(f"{'    ' * (self.indent + 1)}{i} = {', '.join([str(k) for k in j])}")
             else:
                 if issubclass(j.__class__, BaseConfig):
-                    attrs.append(j.to_config())
+                    txt = j.to_config()
+                    if txt:
+                        attrs.append(txt)
                 elif isinstance(j, bool):
                     attrs.append(f"{'    ' * (self.indent + 1)}{i} = {str(j).lower()}")
                 else:
@@ -269,11 +273,27 @@ class Grid(BaseConfig):
                     Corrector(name, AXES[direction[0]], int(direction[1]), condition))
 
 
+class IncludeGrids(BaseConfig):
+    paths: list[str]
+
+    def __init__(self, paths: list[str] = None):
+        if paths is None:
+            paths = []
+        self.paths = paths
+
+    def to_config(self) -> str:
+        return '\n'.join([f'    @include("{path}", "grids")' for path in self.paths])
+
+
 class Grids(BaseConfig):
     indent = 0
+    include_grids: IncludeGrids
     grids: list[Grid]
 
-    def __init__(self, grids: list[Grid] = None):
+    def __init__(self, grids: list[Grid] = None, include_grids: IncludeGrids = None):
+        if include_grids is None:
+            include_grids = IncludeGrids()
+        self.include_grids = include_grids
         if grids is None:
             grids = []
         self.grids = grids
@@ -307,11 +327,27 @@ class Contact(BaseConfig):
             self.axis = axis
 
 
+class IncludeContacts(BaseConfig):
+    paths: list[str]
+
+    def __init__(self, paths: list[str] = None):
+        if paths is None:
+            paths = []
+        self.paths = paths
+
+    def to_config(self) -> str:
+        return '\n'.join([f'    @include("{path}", "contacts")' for path in self.paths])
+
+
 class Contacts(BaseConfig):
     indent = 0
+    include_contacts: IncludeContacts
     contacts: list[Contact]
 
-    def __init__(self, contacts: list[Contact] = None):
+    def __init__(self, contacts: list[Contact] = None, include_contacts: IncludeContacts = None):
+        if include_contacts is None:
+            include_contacts = IncludeContacts()
+        self.include_contacts = include_contacts
         if contacts is None:
             contacts = []
         self.contacts = contacts
