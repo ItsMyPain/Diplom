@@ -17,7 +17,7 @@ class ParCyl(Base):
         if self.par.z0 > self.cyl.z0:
             contacts = helper.sew_par_cyl(self.par, self.cyl, 'Z0', 'Z1', (1, 1), directory)
         else:
-            contacts = helper.sew_par_cyl(self.cyl, self.par, 'Z1', 'Z0', (1, 1), directory)
+            contacts = helper.sew_par_cyl(self.par, self.cyl, 'Z1', 'Z0', (1, 1), directory)
 
         self.par.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z1'])
         self.par.add_corrector(ForceRectElasticBoundary, ['X', 'Y', 'Z1'])
