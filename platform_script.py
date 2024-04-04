@@ -1,4 +1,8 @@
+import os
+
 from new import Material, Cylinder, Parallelepiped, Column, Platform
+
+os.system("rm result/*.*")
 
 MAT = Material(2850.0, 1650.0, 2400.0)
 
@@ -9,9 +13,9 @@ ORIGINS = 28
 PAR_D = (94, 94, 12)
 PAR_U = (85, 85, 10)
 
-H_R = 0.2
-H_H = 0.2
-H_L = 0.2
+H_R = 0.25
+H_H = 0.25
+H_L = 0.25
 
 columns = []
 

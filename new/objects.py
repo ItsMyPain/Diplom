@@ -96,13 +96,13 @@ class Platform(Base):
 
         self.p_d.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z0'])
         self.p_d.add_corrector(ForceRectElasticBoundary, ['X', 'Y', 'Z0'])
-        cond1 = helper.cut_boundary(self.p_d.grid, sews1, direction='backward', side='Z1', directory=directory)
+        cond1 = helper.cut_boundary(self.p_d.grid, sews1, direction='forward', side='Z1', directory=directory)
         self.p_d.add_filler(RectNoReflectFillerConditional, ['Z1'], cond1)
         self.p_d.add_corrector(ForceRectElasticBoundary, ['Z1'], cond1)
 
         self.p_u.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z1'])
         self.p_u.add_corrector(ForceRectElasticBoundary, ['X', 'Y', 'Z1'])
-        cond2 = helper.cut_boundary(self.p_u.grid, sews2, direction='backward', side='Z0', directory=directory)
+        cond2 = helper.cut_boundary(self.p_u.grid, sews2, direction='forward', side='Z0', directory=directory)
         self.p_u.add_filler(RectNoReflectFillerConditional, ['Z0'], cond2)
         self.p_u.add_corrector(ForceRectElasticBoundary, ['Z0'], cond2)
 

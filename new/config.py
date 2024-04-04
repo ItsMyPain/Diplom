@@ -50,11 +50,14 @@ class Material(BaseConfig):
     c1: float
     c2: float
     rho: float
+    y_s: float | None  # Предел текучести
 
-    def __init__(self, c1: float, c2: float, rho: float):
+    def __init__(self, c1: float, c2: float, rho: float, y_s: float | None = None):
         self.c1 = c1
         self.c2 = c2
         self.rho = rho
+        if y_s is not None:
+            self.y_s = y_s
 
 
 class Material_Node(BaseConfig):

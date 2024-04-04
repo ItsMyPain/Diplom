@@ -23,6 +23,17 @@ class TestConfig:
 
         assert conf == need
 
+        mat = Material(1.21, 3.15, 5.55, 0.5)
+        conf = mat.to_config()
+        need = """        [material]
+            c1 = 1.21
+            c2 = 3.15
+            rho = 5.55
+            y_s = 0.5
+        [/material]"""
+
+        assert conf == need
+
     def test_material_node(self):
         mat_node = Material_Node()
         conf = mat_node.to_config()
