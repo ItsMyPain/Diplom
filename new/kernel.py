@@ -92,11 +92,11 @@ class Helper:
 
         return contacts
 
-    def cut_boundary(self, grid: Grid, contacts: list[Contact], direction: Literal['forward', 'backward'],
-                     side: Literal['Z1', 'Z0'], directory='') -> Condition:
+    def cut_boundary(self, grid: Grid, contacts: list[Contact], direction: Literal['forward', 'backward', 'contact'],
+                     side: Literal['Z1', 'Z0'], directory: str) -> Condition:
         path = f"{directory}/{grid.id}/{BOUNDARY_DIR}"
         Path(path).mkdir(parents=True, exist_ok=True)
-        nodes_file = f"{path}/erased_nodes.txt"
+        out_file = f"{path}/erased_nodes.txt"
 
         if side == 'Z1':
             z = (grid.factory.size[2] - 1, grid.factory.size[2], grid.factory.size[2] + 1)
@@ -104,17 +104,34 @@ class Helper:
             z = (0, -1, -2)
         z = ' '.join(map(str, z))
 
+        if hasattr(contacts[0], 'interpolation_file'):
+            c_type = 'interpolation'
+        else:
+            c_type = 'contact'
+
         input_files = []
         for contact in contacts:
-            if ((contact.grid1 == grid.id and direction == 'backward') or (
-                    contact.grid2 == grid.id and direction == 'forward')) \
-                    and hasattr(contact, 'interpolation_file'):
+            if c_type == 'interpolation' and ((contact.grid1 == grid.id and direction == 'backward') or (
+                    contact.grid2 == grid.id and direction == 'forward')):
                 input_files.append(contact.interpolation_file[1:-1])
+            if c_type == 'contact':
+                input_files.append(contact.contact_file[1:-1])
         input_files = ' '.join(input_files)
 
-        self.add_command(f"python3 {BOUNDARY_CUTTER} {nodes_file} '{z}' '{input_files}'")
+        with open(TEMPLATE_CUT_BOUNDARY_CFG) as f:
+            config = f.read()
 
-        return Condition(RectNodeMatchConditionNoneOf, RectNodeMatchConditionInFixedSet, nodes_file)
+        config = config.format(grid.id, out_file, z, c_type, input_files)
+
+        Path(f"{directory}/{grid.id}/{BOUNDARY_CFG_DIR}").mkdir(parents=True, exist_ok=True)
+        config_filename = f"{directory}/{grid.id}/{BOUNDARY_CFG_DIR}/{grid.id}.cfg"
+
+        with open(config_filename, 'w') as f:
+            f.write(config)
+
+        self.add_command(f"python3 {BOUNDARY_CUTTER_V2} {config_filename}")
+
+        return Condition(RectNodeMatchConditionNoneOf, RectNodeMatchConditionInFixedSet, out_file)
 
     def contact(self, grid1: Grid, grid2: Grid, directory: str):
         Path(f"{directory}/{CONTACT_DIR}").mkdir(parents=True, exist_ok=True)
@@ -124,7 +141,7 @@ class Helper:
             config = f.read()
 
         config = config.format(grid1.id, grid2.id, output, GlueRectElasticContact,
-                               grid1.factory.to_config()[18:-17], grid2.factory.to_config()[18:-17])
+                               grid1.factory.to_config()[18:-18], grid2.factory.to_config()[18:-18])
 
         Path(f"{directory}/{CONTACT_CFG_DIR}").mkdir(parents=True, exist_ok=True)
         config_filename = f"{directory}/{CONTACT_CFG_DIR}/{grid1.id}_{grid2.id}.cfg"
@@ -177,7 +194,6 @@ class Base:
         self.path = None
         self.grids = Grids()
         self.contacts = Contacts()
-        self.include = []
 
     def save(self, directory: str):
         pass

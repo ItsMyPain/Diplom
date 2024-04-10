@@ -1,6 +1,37 @@
 from .kernel import *
 
 
+class ParPar(Base):
+    par_d: Parallelepiped
+    par_u: Parallelepiped
+
+    def __init__(self, id: str, par_d: Parallelepiped, par_u: Parallelepiped):
+        super().__init__(id)
+        self.par_d = par_d
+        self.par_u = par_u
+
+    def save(self, directory: str):
+        self.par_d.configure(directory)
+        self.par_u.configure(directory)
+
+        contacts = helper.sew(self.par_d, self.par_d.path, self.par_u, self.par_u.path, 'Z1', 'Z0', (1, 1), directory)
+
+        self.par_d.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z0'])
+        self.par_d.add_corrector(ForceRectElasticBoundary, ['X', 'Y', 'Z0'])
+        self.par_u.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z1'])
+        self.par_u.add_corrector(ForceRectElasticBoundary, ['X', 'Y', 'Z1'])
+
+        cond = helper.cut_boundary(self.par_d, contacts, direction='forward', side='z1', directory=directory)
+        self.par_d.add_filler(RectNoReflectFillerConditional, ['Z1'], cond)
+        self.par_d.add_corrector(ForceRectElasticBoundary, ['Z1'], cond)
+
+        self.par_d.reconfigure()
+        self.par_u.reconfigure()
+
+        self.contacts = Contacts(contacts, include_contacts=IncludeContacts([self.par_d.path, self.par_u.path]))
+        self.grids = Grids(include_grids=IncludeGrids([self.par_d.path, self.par_u.path]))
+
+
 class ParCyl(Base):
     par: Parallelepiped
     cyl: Cylinder
@@ -122,4 +153,38 @@ class Platform(Base):
         self.p_u.reconfigure()
         for i in self.columns:
             i.reconfigure()
+        super().reconfigure()
+
+
+class ParParContact(Base):
+    par_d: Parallelepiped
+    par_u: Parallelepiped
+
+    def __init__(self, id: str, par_d: Parallelepiped, par_u: Parallelepiped):
+        super().__init__(id)
+        self.par_d = par_d
+        self.par_u = par_u
+
+    def save(self, directory: str):
+        self.par_d.configure(directory)
+        self.par_u.configure(directory)
+
+        contacts = [helper.contact(self.par_u.grid, self.par_d.grid, directory)]
+
+        self.par_d.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z'])
+        self.par_u.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z'])
+        self.par_u.add_corrector(ForceRectElasticBoundary,['X', 'Y', 'Z1'])
+
+        cond = helper.cut_boundary(self.par_d.grid, contacts, direction='contact', side='Z1', directory=directory)
+        self.par_d.add_corrector(ForceRectElasticBoundary, ['Z1'], cond)
+
+        self.par_d.reconfigure()
+        self.par_u.reconfigure()
+
+        self.contacts = Contacts(contacts, include_contacts=IncludeContacts([self.par_d.path, self.par_u.path]))
+        self.grids = Grids(include_grids=IncludeGrids([self.par_d.path, self.par_u.path]))
+
+    def reconfigure(self):
+        self.par_d.reconfigure()
+        self.par_u.reconfigure()
         super().reconfigure()

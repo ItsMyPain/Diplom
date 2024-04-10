@@ -4,12 +4,14 @@ INTERP_CFG_DIR = 'interpolation_configs'
 INTERP_DIR = 'interpolation'
 CONTACT_CFG_DIR = 'contact_configs'
 CONTACT_DIR = 'contact'
+BOUNDARY_CFG_DIR = 'boundary_configs'
 BOUNDARY_DIR = 'boundary'
 
 TEMPLATE_DIR = 'templates'
 TEMPLATE_CONFIG = f'{TEMPLATE_DIR}/config_template.conf'
 TEMPLATE_INTERP_CFG = f'{TEMPLATE_DIR}/interpolation_template.cfg'
 TEMPLATE_CONTACT_CFG = f'{TEMPLATE_DIR}/contact_template.cfg'
+TEMPLATE_CUT_BOUNDARY_CFG = f'{TEMPLATE_DIR}/cut_boundary_template.cfg'
 
 DIMS = 3
 
@@ -26,6 +28,7 @@ PREPARE_ALL = f'bash ./{PREPARE_FILE}'
 INTERP_COMM1 = f'direction=1 interpolation=barycentric {RECT_DIR}/rect/build/interpolation'
 INTERP_COMM2 = f'direction=2 interpolation=barycentric {RECT_DIR}/rect/build/interpolation'
 CONTACT_COMM = f'{RECT_DIR}/rect/build/contact_finder'
+BOUNDARY_CUTTER_V2 = 'boundary_cutter_v2.py'
 BOUNDARY_CUTTER = 'boundary_cutter.py'
 
 # _____ NODE _____ #
