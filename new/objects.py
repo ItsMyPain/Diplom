@@ -171,9 +171,14 @@ class ParParContact(Base):
 
         contacts = [helper.contact(self.par_u.grid, self.par_d.grid, directory)]
 
-        self.par_d.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z'])
+        # self.par_d.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z'])
+        self.par_d.add_filler(RectNoReflectFiller, ['Z1'])
+        imp = Impulse('riker_impulse.txt')
+        self.par_d.grid.add_filler(ElasticWaveFiller, ['X', 'Y', 'Z0'], center=(0, 0, -5), direction=(0, 0, 1),
+                                   velocity_magnitude=5, impulse=imp)
+
         self.par_u.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z'])
-        self.par_u.add_corrector(ForceRectElasticBoundary,['X', 'Y', 'Z1'])
+        self.par_u.add_corrector(ForceRectElasticBoundary, ['X', 'Y', 'Z1'])
 
         cond = helper.cut_boundary(self.par_d.grid, contacts, direction='contact', side='Z1', directory=directory)
         self.par_d.add_corrector(ForceRectElasticBoundary, ['Z1'], cond)

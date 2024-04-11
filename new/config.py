@@ -124,18 +124,46 @@ class Condition(BaseConfig):
                 [/condition]"""
 
 
+class Impulse(BaseConfig):
+    indent = 4
+    filename: str
+
+    def __init__(self, filename: str):
+        self.filename = filename
+
+    def to_config(self) -> str:
+        return f"""                [impulse]
+                    name = FileInterpolationImpulse
+                    [interpolator]
+                        name = PiceWiceInterpolator1D
+                        file = {self.filename}
+                    [/interpolator]
+                [/impulse]"""
+
+
 class Filler(BaseConfig):
     indent = 3
     name: str
     axis: int
     side: int
 
-    def __init__(self, name: str, axis: int, side: int, condition: Condition | None = None):
+    def __init__(self, name: str, axis: int, side: int, condition: Condition = None,
+                 center: tuple[int, int, int] = None, direction: tuple[int, int, int] = None,
+                 velocity_magnitude: int = None, impulse: Impulse = None):
         self.name = name
         self.axis = axis
         self.side = side
         if condition is not None:
             self.condition = condition
+        if center is not None:
+            self.center = center
+            self.m_axis = axis
+        if direction is not None:
+            self.direction = direction
+        if velocity_magnitude is not None:
+            self.velocity_magnitude = velocity_magnitude
+        if impulse is not None:
+            self.impulse = impulse
 
 
 class Fillers(BaseConfig):
@@ -154,7 +182,7 @@ class Corrector(BaseConfig):
     axis: int
     side: int
 
-    def __init__(self, name: str, axis: int, side: int, condition: Condition | None = None):
+    def __init__(self, name: str, axis: int, side: int, condition: Condition = None):
         self.name = name
         self.axis = axis
         self.side = side
@@ -162,7 +190,7 @@ class Corrector(BaseConfig):
             self.condition = condition
 
 
-class Impulse(BaseConfig):
+class ImpulseCor(BaseConfig):
     indent = 3
     x: int
     y: int
@@ -194,7 +222,7 @@ class Impulse(BaseConfig):
 
 class Correctors(BaseConfig):
     indent = 2
-    correctors: list[Corrector | Impulse]
+    correctors: list[Corrector | ImpulseCor]
 
     def __init__(self, correctors: list[Corrector] = None):
         if correctors is None:
@@ -243,18 +271,23 @@ class Grid(BaseConfig):
         for i in zip(base, new):
             if i[0] < i[1]:
                 raise Exception(f"Неправильная размерность: {i}")
-        self.correctors.correctors.append(Impulse(*new, filename))
+        self.correctors.correctors.append(ImpulseCor(*new, filename))
 
-    def add_filler(self, name: str, where: directions_boundary | list[directions_boundary],
-                   condition: Condition | None = None):
+    def add_filler(self, name: str, where: directions_boundary | list[directions_boundary], condition: Condition = None,
+                   center: tuple[int, int, int] = None, direction: tuple[int, int, int] = None,
+                   velocity_magnitude: int = None, impulse: Impulse = None):
         if isinstance(where, str):
             where = [where]
-        for direction in where:
-            if direction in AXES:
-                self.fillers.fillers.append(Filler(name, AXES[direction], 0))
-                self.fillers.fillers.append(Filler(name, AXES[direction], 1))
+        for direct in where:
+            if direct in AXES:
+                self.fillers.fillers.append(
+                    Filler(name, AXES[direct], 0, condition, center, direction, velocity_magnitude, impulse))
+                self.fillers.fillers.append(
+                    Filler(name, AXES[direct], 1, condition, center, direction, velocity_magnitude, impulse))
             else:
-                self.fillers.fillers.append(Filler(name, AXES[direction[0]], int(direction[1]), condition))
+                self.fillers.fillers.append(
+                    Filler(name, AXES[direct[0]], int(direct[1]), condition, center, direction, velocity_magnitude,
+                           impulse))
 
     def add_corrector(self, name: str, where: directions_boundary | list[directions_boundary],
                       condition: Condition | None = None):

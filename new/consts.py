@@ -28,7 +28,7 @@ PREPARE_ALL = f'bash ./{PREPARE_FILE}'
 INTERP_COMM1 = f'direction=1 interpolation=barycentric {RECT_DIR}/rect/build/interpolation'
 INTERP_COMM2 = f'direction=2 interpolation=barycentric {RECT_DIR}/rect/build/interpolation'
 CONTACT_COMM = f'{RECT_DIR}/rect/build/contact_finder'
-BOUNDARY_CUTTER_V2 = 'boundary_cutter_v2.py'
+BOUNDARY_CUTTER_V2 = 'boundary_cutter.py'
 BOUNDARY_CUTTER = 'boundary_cutter.py'
 
 # _____ NODE _____ #
@@ -45,12 +45,13 @@ ElasticRectSchema3DRusanov3 = 'ElasticRectSchema3DRusanov3'
 # _____ FILLER _____ #
 RectNoReflectFiller = 'RectNoReflectFiller'
 RectNoReflectFillerConditional = 'RectNoReflectFillerConditional'
+ElasticWaveFiller = f'ElasticWaveFiller{DIMS}D'
 
 # _____ CORRECTOR _____ #
-ForceRectElasticBoundary = 'ForceRectElasticBoundary3D'
+ForceRectElasticBoundary = f'ForceRectElasticBoundary{DIMS}D'
 
 # _____ CONTACT _____ #
-GlueRectElasticContact = 'GlueRectElasticContact3D'
+GlueRectElasticContact = f'GlueRectElasticContact{DIMS}D'
 RectGridInterpolationCorrector = 'RectGridInterpolationCorrector'
 
 # _____ CONDITION _____ #

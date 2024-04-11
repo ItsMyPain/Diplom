@@ -195,7 +195,7 @@ direction=2 interpolation=barycentric rect_new/rect/build/interpolation sew/inte
         need = """set -e
 direction=1 interpolation=barycentric rect_new/rect/build/interpolation cut_boundary/interpolation_configs/P1_P2.cfg
 direction=2 interpolation=barycentric rect_new/rect/build/interpolation cut_boundary/interpolation_configs/P1_P2.cfg
-python3 boundary_cutter.py cut_boundary/P1/boundary/erased_nodes.txt '0 -1 -2' 'cut_boundary/interpolation/backward_P1_P2.txt'"""
+python3 boundary_cutter.py cut_boundary/P1/boundary_configs/P1.cfg"""
 
         with open('cut_boundary/cut_boundary.sh') as f:
             conf = f.read()

@@ -90,6 +90,19 @@ class TestConfig:
 
         assert conf == need
 
+    def test_impulse(self):
+        imp = Impulse('test_name1')
+        conf = imp.to_config()
+        need = """                [impulse]
+                    name = FileInterpolationImpulse
+                    [interpolator]
+                        name = PiceWiceInterpolator1D
+                        file = test_name1
+                    [/interpolator]
+                [/impulse]"""
+
+        assert conf == need
+
     def test_filler(self):
         fill = Filler('test_name', 0, 1)
         conf = fill.to_config()
@@ -117,6 +130,29 @@ class TestConfig:
                         [/condition]
                     [/conditions]
                 [/condition]
+            [/filler]"""
+
+        assert conf == need
+
+        imp = Impulse('test_name1')
+        fill = Filler('ElasticWaveFiller3D', 1, 0, center=(0, 0, 0), direction=(1, 0, 0),
+                      velocity_magnitude=1, impulse=imp)
+        conf = fill.to_config()
+        need = """            [filler]
+                name = ElasticWaveFiller3D
+                axis = 1
+                side = 0
+                center = 0, 0, 0
+                m_axis = 1
+                direction = 1, 0, 0
+                velocity_magnitude = 1
+                [impulse]
+                    name = FileInterpolationImpulse
+                    [interpolator]
+                        name = PiceWiceInterpolator1D
+                        file = test_name1
+                    [/interpolator]
+                [/impulse]
             [/filler]"""
 
         assert conf == need
@@ -181,7 +217,7 @@ class TestConfig:
         assert conf == need
 
     def test_impulses(self):
-        impulse = Impulse(8, 4, 20, 'test_name.txt')
+        impulse = ImpulseCor(8, 4, 20, 'test_name.txt')
         conf = impulse.to_config()
         need = """            [corrector]
                 name = PointSourceCorrector3D
