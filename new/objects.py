@@ -101,17 +101,21 @@ class Column(Base):
 
 
 class Platform(Base):
+    ground: Parallelepiped
     p_d: Parallelepiped
     p_u: Parallelepiped
     columns: list[Column]
 
-    def __init__(self, id: str, p_d: Parallelepiped, p_u: Parallelepiped, columns: list[Column]):
+    def __init__(self, id: str, ground: Parallelepiped, p_d: Parallelepiped, p_u: Parallelepiped,
+                 columns: list[Column]):
         super().__init__(id)
+        self.ground = ground
         self.p_d = p_d
         self.p_u = p_u
         self.columns = columns
 
     def save(self, directory: str):
+        self.ground.configure(directory)
         self.p_d.configure(directory)
         self.p_u.configure(directory)
 
@@ -124,6 +128,8 @@ class Platform(Base):
         for column in self.columns:
             sews1.extend(helper.sew_par_cyl(self.p_d, column.cyl_d, 'Z1', 'Z0', (1, 1), directory))
             sews2.extend(helper.sew_par_cyl(self.p_u, column.cyl_u, 'Z0', 'Z1', (1, 1), directory))
+
+        contact = [helper.contact(self.ground.grid, self.p_d.grid, directory)]
 
         self.p_d.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z0'])
         self.p_d.add_corrector(ForceRectElasticBoundary, ['X', 'Y', 'Z0'])
@@ -174,7 +180,7 @@ class ParParContact(Base):
         # self.par_d.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z'])
         self.par_d.add_filler(RectNoReflectFiller, ['Z1'])
         imp = Impulse('riker_impulse.txt')
-        self.par_d.grid.add_filler(ElasticWaveFiller, ['X', 'Y', 'Z0'], center=(0, 0, -5), direction=(0, 0, 1),
+        self.par_d.grid.add_filler(ElasticWaveFiller, ['X', 'Y', 'Z0'], center=(-27, 0, -5), direction=(1, 0, 1),
                                    velocity_magnitude=5, impulse=imp)
 
         self.par_u.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z'])
