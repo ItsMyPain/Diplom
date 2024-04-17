@@ -107,17 +107,23 @@ class Platform(Base):
     columns: list[Column]
 
     def __init__(self, id: str, ground: Parallelepiped, p_d: Parallelepiped, p_u: Parallelepiped,
-                 columns: list[Column]):
+                 columns: list[Column], imp_center, imp_dir, imp_magn, imp):
         super().__init__(id)
         self.ground = ground
         self.p_d = p_d
         self.p_u = p_u
         self.columns = columns
+        self.imp_center = imp_center
+        self.imp_dir = imp_dir
+        self.imp_magn = imp_magn
+        self.imp = imp
 
     def save(self, directory: str):
         self.ground.configure(directory)
         self.p_d.configure(directory)
         self.p_u.configure(directory)
+
+        contact = [helper.contact(self.ground.grid, self.p_d.grid, directory)]
 
         for i in self.columns:
             i.configure(directory)
@@ -129,32 +135,37 @@ class Platform(Base):
             sews1.extend(helper.sew_par_cyl(self.p_d, column.cyl_d, 'Z1', 'Z0', (1, 1), directory))
             sews2.extend(helper.sew_par_cyl(self.p_u, column.cyl_u, 'Z0', 'Z1', (1, 1), directory))
 
-        contact = [helper.contact(self.ground.grid, self.p_d.grid, directory)]
 
-        self.p_d.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z0'])
-        self.p_d.add_corrector(ForceRectElasticBoundary, ['X', 'Y', 'Z0'])
+        cond0 = helper.cut_boundary(self.ground.grid, contact, direction='contact', side='Z1', directory=directory)
+
+        self.ground.add_filler(RectNoReflectFiller, ['Z1'])
+        self.ground.grid.add_filler(ElasticWaveFiller, ['X', 'Y', 'Z0'],
+                                    center=self.imp_center, direction=self.imp_dir,
+                                    velocity_magnitude=self.imp_magn, impulse=self.imp)
+        self.ground.add_corrector(ForceRectElasticBoundary, ['Z1'], cond0)
+
         cond1 = helper.cut_boundary(self.p_d.grid, sews1, direction='forward', side='Z1', directory=directory)
+        self.p_d.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z0'])
         self.p_d.add_filler(RectNoReflectFillerConditional, ['Z1'], cond1)
+        self.p_d.add_corrector(ForceRectElasticBoundary, ['X', 'Y'])
         self.p_d.add_corrector(ForceRectElasticBoundary, ['Z1'], cond1)
 
-        self.p_u.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z1'])
-        self.p_u.add_corrector(ForceRectElasticBoundary, ['X', 'Y', 'Z1'])
         cond2 = helper.cut_boundary(self.p_u.grid, sews2, direction='forward', side='Z0', directory=directory)
+        self.p_u.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z1'])
         self.p_u.add_filler(RectNoReflectFillerConditional, ['Z0'], cond2)
+        self.p_u.add_corrector(ForceRectElasticBoundary, ['X', 'Y', 'Z1'])
         self.p_u.add_corrector(ForceRectElasticBoundary, ['Z0'], cond2)
 
-        self.p_d.reconfigure()
-        self.p_u.reconfigure()
+        self.reconfigure()
 
-        for i in self.columns:
-            i.reconfigure()
-
-        self.contacts = Contacts(sews1 + sews2,
+        self.contacts = Contacts(sews1 + sews2 + contact,
                                  include_contacts=IncludeContacts(
-                                     [self.p_d.path, self.p_u.path, *[i.path for i in self.columns]]))
-        self.grids = Grids(include_grids=IncludeGrids([self.p_d.path, self.p_u.path, *[i.path for i in self.columns]]))
+                                     [self.ground.path, self.p_d.path, self.p_u.path, *[i.path for i in self.columns]]))
+        self.grids = Grids(include_grids=IncludeGrids(
+            [self.ground.path, self.p_d.path, self.p_u.path, *[i.path for i in self.columns]]))
 
     def reconfigure(self):
+        self.ground.reconfigure()
         self.p_d.reconfigure()
         self.p_u.reconfigure()
         for i in self.columns:
@@ -177,10 +188,9 @@ class ParParContact(Base):
 
         contacts = [helper.contact(self.par_u.grid, self.par_d.grid, directory)]
 
-        # self.par_d.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z'])
         self.par_d.add_filler(RectNoReflectFiller, ['Z1'])
         imp = Impulse('riker_impulse.txt')
-        self.par_d.grid.add_filler(ElasticWaveFiller, ['X', 'Y', 'Z0'], center=(-27, 0, -5), direction=(1, 0, 1),
+        self.par_d.grid.add_filler(ElasticWaveFiller, ['X', 'Y', 'Z0'], center=(-56, 0, -5), direction=(1, 0, 1),
                                    velocity_magnitude=5, impulse=imp)
 
         self.par_u.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z'])

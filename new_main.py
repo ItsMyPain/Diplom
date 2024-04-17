@@ -35,12 +35,11 @@ def par_par():
 
 
 def par_contact():
-    h = 0.5
-    mat1 = Material(2850.0, 1650.0, 2400.0, 12e+6)
-    par_d = Parallelepiped('P1', mat1, lg=50, w=50, h=20, h_lg=h, h_w=h, h_h=h)
-
-    mat2 = Material(5850.0, 3650.0, 2700.0, 35e+6)
-    par_u = Parallelepiped('P2', mat2, lg=25, w=25, h=20, h_lg=h, h_w=h, h_h=h, z0=par_d.h)
+    h = 1
+    SOIL = Material(2300.0, 1700.0, 1900.0)
+    BETON = Material(3700.0, 3600.0, 2400.0)
+    par_d = Parallelepiped('P1', SOIL, lg=110, w=110, h=15, h_lg=h, h_w=h, h_h=h)
+    par_u = Parallelepiped('P2', BETON, lg=94, w=94, h=12, h_lg=h, h_w=h, h_h=h, z0=par_d.h)
 
     pp_cont = ParParContact('PP_C', par_d, par_u)
     pp_cont.configure('.')
