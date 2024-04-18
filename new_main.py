@@ -1,6 +1,6 @@
 import os
 
-from new.objects import *
+from orm.objects import *
 
 os.system("rm mises/*.*")
 os.system("rm result/*.*")

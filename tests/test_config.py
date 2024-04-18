@@ -1,4 +1,4 @@
-from new.config import *
+from orm.config import *
 
 
 class TestConfig:

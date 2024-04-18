@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from new.kernel import *
+from orm.kernel import *
 
 
 class TestKernel:

@@ -1,6 +1,6 @@
 import os
 
-from new import Material, Cylinder, Parallelepiped, Column, Platform, Impulse
+from orm import Material, Cylinder, Parallelepiped, Column, Platform, Impulse
 
 os.system("rm result/*.*")
 os.system("rm mises/*.*")
