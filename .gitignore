@@ -8,6 +8,7 @@ __pycache__/
 /result/*
 /mises/*
 /projects/*
+/Diplom*
 
 
 !/configs/template2D.conf
