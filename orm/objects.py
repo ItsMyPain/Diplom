@@ -101,15 +101,14 @@ class Column(Base):
 
 
 class Platform(Base):
-    ground: Parallelepiped
+    # ground: Parallelepiped
     p_d: Parallelepiped
     p_u: Parallelepiped
     columns: list[Column]
 
-    def __init__(self, id: str, ground: Parallelepiped, p_d: Parallelepiped, p_u: Parallelepiped,
-                 columns: list[Column], imp_center, imp_dir, imp_magn, imp):
+    def __init__(self, id: str, p_d: Parallelepiped, p_u: Parallelepiped, columns: list[Column], imp_center, imp_dir,
+                 imp_magn, imp):
         super().__init__(id)
-        self.ground = ground
         self.p_d = p_d
         self.p_u = p_u
         self.columns = columns
@@ -159,9 +158,9 @@ class Platform(Base):
 
         self.contacts = Contacts(sews1 + sews2,  # + contact,
                                  include_contacts=IncludeContacts(
-                                     [self.ground.path, self.p_d.path, self.p_u.path, *[i.path for i in self.columns]]))
+                                     [self.p_d.path, self.p_u.path, *[i.path for i in self.columns]]))
         self.grids = Grids(include_grids=IncludeGrids(
-            [self.ground.path, self.p_d.path, self.p_u.path, *[i.path for i in self.columns]]))
+            [self.p_d.path, self.p_u.path, *[i.path for i in self.columns]]))
 
     def reconfigure(self):
         # self.ground.reconfigure()

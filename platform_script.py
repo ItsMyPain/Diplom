@@ -33,11 +33,11 @@ for n, origin in enumerate([(ORIGINS, ORIGINS), (ORIGINS, -ORIGINS), (-ORIGINS, 
     col = Column(f'col_{n}', cyl_d, cyl_u)
     columns.append(col)
 
-ground = Parallelepiped('ground', SOIL, *GROUND, H_L, H_L, H_H)
+# ground = Parallelepiped('ground', SOIL, *GROUND, H_L, H_L, H_H)
 par_d = Parallelepiped('par_d', BETON, *PAR_D, H_L, H_L, H_H, z0=GROUND[2])
 par_u = Parallelepiped('par_u', BETON, *PAR_U, H_L, H_L, H_H, z0=GROUND[2] + PAR_D[2] + CYL_D[2] + CYL_U[2])
 
-platform = Platform('platform', ground, par_d, par_u, columns, IMPULSE_CENTER, IMPULSE_DIR, IMPULSE_MAGN, IMPULSE)
+platform = Platform('platform', par_d, par_u, columns, IMPULSE_CENTER, IMPULSE_DIR, IMPULSE_MAGN, IMPULSE)
 
 platform.configure('projects')
 
