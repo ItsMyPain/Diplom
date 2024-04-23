@@ -244,3 +244,5 @@ rect_new/rect/build/contact_finder contact/contact_configs/P1_P2.cfg"""
     [/contact]"""
 
         assert contact.to_config() == need
+
+        shutil.rmtree('contact')

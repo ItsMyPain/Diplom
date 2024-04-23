@@ -263,7 +263,7 @@ class Parallelepiped(Base):
             factory=Factory(RectGridFactory,
                             size=(size_x, size_y, size_z),
                             origin=(origin_x, origin_y, origin_z),
-                            spacing=(h_lg, h_w, h_h)),
+                            spacing=(f'{h_lg:.10f}', f'{h_w:.10f}', f'{h_h:.10f}')),
             schema=Schema(ElasticRectSchema3DRusanov3),
         )
 

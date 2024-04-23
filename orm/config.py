@@ -78,8 +78,8 @@ class Factory(BaseConfig):
     path_z: str | None
 
     def __init__(self, name: str, size: tuple[int, int, int], origin: tuple[float, float, float] = None,
-                 spacing: tuple[float, float, float] = None, path_x: str | None = None, path_y: str | None = None,
-                 path_z: str | None = None):
+                 spacing: tuple[float | str, float | str, float | str] = None, path_x: str | None = None,
+                 path_y: str | None = None, path_z: str | None = None):
         self.name = name
         self.size = size
         if origin is not None:

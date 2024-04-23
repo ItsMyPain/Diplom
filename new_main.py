@@ -5,17 +5,26 @@ from orm.objects import *
 os.system("rm mises/*.*")
 os.system("rm result/*.*")
 
+SOIL = Material(2300.0, 1600.0, 1900.0)
+BETON = Material(3700.0, 1900.0, 2400.0)
 
 def par():
-    mat = Material(2850.0, 1650.0, 2400.0, 300)
-    par1 = Parallelepiped('P1', mat, lg=30, w=30, h=5, h_lg=0.5, h_w=0.5, h_h=0.5, z0=10)
+    # mat = Material(2850.0, 1650.0, 2400.0, 300)
+    par1 = Parallelepiped('P1', SOIL, lg=30, w=30, h=5, h_lg=0.5, h_w=0.5, h_h=0.5)
     par1.configure(directory='.')
 
-    par1.grid.add_impulse('test_impulse.txt', x=0.5, y=0.8, z=0.5)
-    par1.grid.add_impulse('test_impulse.txt', x=0.5, y=0.2, z=0.5)
-    par1.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z'])
-    par1.add_corrector(ForceRectElasticBoundary, ['X', 'Y', 'Z'])
+    # par1.grid.add_impulse('test_impulse.txt', x=0.5, y=0.8, z=0.5)
+    # par1.grid.add_impulse('test_impulse.txt', x=0.5, y=0.2, z=0.5)
+    # par1.add_filler(RectNoReflectFiller, ['X', 'Y', 'Z'])
+    # par1.add_corrector(ForceRectElasticBoundary, ['X', 'Y', 'Z'])
 
+    imp = Impulse('riker_impulse.txt')
+    par1.grid.add_filler(ElasticWaveFiller, ['X', 'Y', 'Z0'], center=(-16, 0, -2), direction=(1, 0, 1),
+                               velocity_magnitude=5, impulse=imp)
+    par1.add_filler(RectNoReflectFiller, ['Z1'])
+
+    par1.add_corrector(ForceRectElasticBoundary, ['Z1'])
+    
     par1.reconfigure()
     par1.build()
 
@@ -35,9 +44,7 @@ def par_par():
 
 
 def par_contact():
-    h = 1
-    SOIL = Material(2300.0, 1700.0, 1900.0)
-    BETON = Material(3700.0, 3600.0, 2400.0)
+    h = 0.1
     par_d = Parallelepiped('P1', SOIL, lg=110, w=110, h=15, h_lg=h, h_w=h, h_h=h)
     par_u = Parallelepiped('P2', BETON, lg=94, w=94, h=12, h_lg=h, h_w=h, h_h=h, z0=par_d.h)
 

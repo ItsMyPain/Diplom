@@ -1,4 +1,5 @@
 set -e
+rect_new/rect/build/contact_finder projects/platform/contact_configs/ground_par_d.cfg
 direction=1 interpolation=barycentric rect_new/rect/build/interpolation projects/platform/col_0/cyl_d_0/interpolation_configs/cyl_d_0_top_cyl_d_0_left.cfg
 direction=2 interpolation=barycentric rect_new/rect/build/interpolation projects/platform/col_0/cyl_d_0/interpolation_configs/cyl_d_0_top_cyl_d_0_left.cfg
 direction=1 interpolation=barycentric rect_new/rect/build/interpolation projects/platform/col_0/cyl_d_0/interpolation_configs/cyl_d_0_left_cyl_d_0_bottom.cfg
@@ -247,6 +248,7 @@ direction=1 interpolation=barycentric rect_new/rect/build/interpolation projects
 direction=2 interpolation=barycentric rect_new/rect/build/interpolation projects/platform/interpolation_configs/par_u_cyl_u_3_bottom.cfg
 direction=1 interpolation=barycentric rect_new/rect/build/interpolation projects/platform/interpolation_configs/par_u_cyl_u_3_left.cfg
 direction=2 interpolation=barycentric rect_new/rect/build/interpolation projects/platform/interpolation_configs/par_u_cyl_u_3_left.cfg
+python3 boundary_cutter.py projects/platform/ground/boundary_configs/ground.cfg
 python3 boundary_cutter.py projects/platform/par_d/boundary_configs/par_d.cfg
 python3 boundary_cutter.py projects/platform/par_u/boundary_configs/par_u.cfg
 rect_new/rect/build/rect projects/platform/platform.conf
