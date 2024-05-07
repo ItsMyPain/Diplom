@@ -16,11 +16,11 @@ GROUND = (110, 110, 15)
 PAR_D = (90, 90, 12)
 PAR_U = (85, 85, 10)
 
-H_R = 1
-H_H = 1
-H_L = 1
+H_R = 0.5
+H_H = 0.5
+H_L = 0.5
 
-IMPULSE_CENTER = (-57, 0, -17)
+IMPULSE_CENTER = (-57, 0, -5)
 IMPULSE_DIR = (1, 0, 1)
 IMPULSE_MAGN = 1
 IMPULSE = Impulse('riker_impulse.txt')

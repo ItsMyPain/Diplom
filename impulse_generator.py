@@ -33,12 +33,14 @@ def riker(f, t0, t):
 
 def generate_impulse(file):
     dt = 5e-06
-    times = np.arange(0, 0.015, dt)
-    print(times.shape[0])
-    # values = f1(times)
-    values = riker(1500, 0.00075, times)
-    tt = times > 0.002
-    values[tt] = 0
+    n = 2000
+    t0 = 1e-03
+    # n = 35000
+    # t0 = 0.023
+    times = np.arange(0, n * dt, dt)
+    print(dt * n)
+    # values = riker(10, t0, times)
+    values = riker(1000, t0, times)
     write(times, values, file)
 
 

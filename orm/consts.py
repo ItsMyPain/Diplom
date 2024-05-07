@@ -46,6 +46,7 @@ ElasticRectSchema3DRusanov3 = 'ElasticRectSchema3DRusanov3'
 RectNoReflectFiller = 'RectNoReflectFiller'
 RectNoReflectFillerConditional = 'RectNoReflectFillerConditional'
 ElasticWaveFiller = f'ElasticWaveFiller{DIMS}D'
+RectPeriodFiller = 'RectPeriodFiller'
 
 # _____ CORRECTOR _____ #
 ForceRectElasticBoundary = f'ForceRectElasticBoundary{DIMS}D'

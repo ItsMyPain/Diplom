@@ -102,6 +102,29 @@ class TestKernel:
 
         shutil.rmtree('P2')
 
+    def test_ring(self):
+        mat = Material(2850.0, 1650.0, 2400.0)
+        ring = Ring('R1', mat, r_d=15, r_u=20, h=10, h_r=0.5, h_h=0.5)
+
+        ring.configure('.')
+
+        ring.add_filler('RectNoReflectFiller', ['X', 'Y', 'Z0'])
+        ring.add_corrector('ForceRectElasticBoundary3D', ['X', 'Y', 'Z0'])
+
+        ring.grid.add_impulse('test_impulse.txt', x=0.5, y=0.5, z=0.5)
+
+        ring.reconfigure()
+
+        with open(ring.path) as f:
+            conf = f.read()
+
+        # with open(f'{self.test_conf_dir}/P2.conf') as f:
+        #     template = f.read()
+        #
+        # assert conf == template
+        #
+        # shutil.rmtree('P2')
+
     def test_cylinder(self):
         mat = Material(2850.0, 1650.0, 2400.0)
         cyl = Cylinder('C1', mat, r_d=10, r_u=10, h=20, h_r=0.5, h_h=0.5)

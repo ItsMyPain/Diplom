@@ -345,6 +345,66 @@ class Prism(Base):
         self.grid.add_corrector(name, where, condition)
 
 
+class Ring(Base):
+    grid: Grid
+
+    def __init__(self, id: str, material: Material, r_id, r_od, r_iu, r_ou, h, h_r, h_h, x0=0.0, y0=0.0, z0=0.0):
+        super().__init__(id)
+
+        self.r_id = r_id
+        self.r_od = r_od
+        self.r_iu = r_iu
+        self.r_ou = r_ou
+        self.h = h
+        self.h_r = h_r
+        self.h_h = h_h
+        self.x0 = x0
+        self.y0 = y0
+        self.z0 = z0
+
+        self.size_x = int(2 * np.pi * max(r_id, r_od, r_iu, r_ou) / h_r) + 1
+        self.size_y = int(max(r_od - r_id, r_ou - r_iu) / h_r) + 1
+        self.size_z = int(h / h_h) + 1
+
+        self.grid = Grid(
+            id=id,
+            node=Node(ElasticMetaNode3D),
+            material=material,
+            factory=Factory(BINGridFactory,
+                            size=(self.size_x, self.size_y, self.size_z)),
+            schema=Schema(ElasticCurveSchema3DRusanov3),
+        )
+
+    def save(self, directory: str):
+        fi = np.linspace(-np.pi, np.pi, self.size_x)
+
+        r_u = np.linspace(self.r_iu, self.r_ou, self.size_y)
+        r_d = np.linspace(self.r_id, self.r_od, self.size_y)
+
+        x_u = self.x0 + np.outer(r_u, np.cos(fi))
+        y_u = self.y0 + np.outer(r_u, np.sin(fi))
+        x_d = self.x0 + np.outer(r_d, np.cos(fi))
+        y_d = self.y0 + np.outer(r_d, np.sin(fi))
+
+        z = self.z0 + np.linspace(self.h, 0, self.size_z)
+
+        xx = np.linspace(x_u, x_d, self.size_z).flatten()
+        yy = np.linspace(y_u, y_d, self.size_z).flatten()
+        _, zz = np.meshgrid(x_u, z)
+        zz = zz.flatten()
+
+        bins = Bins(self.grid.id, (xx, yy, zz))
+        self.grid.factory.path_x, self.grid.factory.path_y, self.grid.factory.path_z = bins.save(directory)
+
+        self.grids = Grids([self.grid])
+
+    def add_filler(self, name: str, where: list[directions_boundary], condition: Condition | None = None):
+        self.grid.add_filler(name, where, condition)
+
+    def add_corrector(self, name: str, where: list[directions_boundary], condition: Condition | None = None):
+        self.grid.add_corrector(name, where, condition)
+
+
 class Cylinder(Base):
     center: Grid
     top: Grid
@@ -511,3 +571,73 @@ class Cylinder(Base):
                 self.bottom.add_corrector(name, i, condition)
                 self.right.add_corrector(name, i, condition)
                 self.center.add_corrector(name, i, condition)
+
+
+class Cylinder2(Base):
+    center: Grid
+    external: Grid
+
+    def __init__(self, id: str, material: Material, r_d, r_u, h, h_r, h_h, x0=0.0, y0=0.0, z0=0.0):
+        super().__init__(id)
+
+        self.material = material
+        self.r_d = r_d
+        self.r_u = r_u
+        self.h = h
+        self.h_r = h_r
+        self.h_h = h_h
+        self.x0 = x0
+        self.y0 = y0
+        self.z0 = z0
+
+        if r_d == r_u:
+            self._center = Parallelepiped(f'{id}_center', material,
+                                          lg=r_d, w=r_d, h=h,
+                                          h_lg=h_r / 2, h_w=h_r / 2, h_h=h_h,
+                                          x0=x0, y0=y0, z0=z0)
+        else:
+            self._center = Prism(f'{id}_center', material,
+                                 lg_d=r_d, w_d=r_d, lg_u=r_u, w_u=r_u, h=h,
+                                 h_lg=h_r / 2, h_w=h_r / 2, h_h=h_h,
+                                 x0=x0, y0=y0, z0=z0)
+
+        self._external = Ring(f'{id}_external', material,
+                              r_id=r_d / 2, r_od=r_d, r_iu=r_u / 2, r_ou=r_u, h=h,
+                              h_r=h_r, h_h=h_h,
+                              x0=x0, y0=y0, z0=z0)
+
+        self._external.add_filler(RectPeriodFiller, ['X'])
+
+    def save(self, directory: str):
+        self._center.save(directory)
+        self.center = self._center.grid
+
+        self._external.save(directory)
+        self.external = self._external.grid
+
+        contacts = []
+        contacts.extend(helper.sew(self.center, self.path, self.external, self.path, 'X0', 'Y0', (1, 1), directory))
+        contacts.extend(helper.sew(self.center, self.path, self.external, self.path, 'X1', 'Y0', (1, 1), directory))
+        contacts.extend(helper.sew(self.center, self.path, self.external, self.path, 'Y0', 'Y0', (1, 1), directory))
+        contacts.extend(helper.sew(self.center, self.path, self.external, self.path, 'Y1', 'Y0', (1, 1), directory))
+
+        self.grids = Grids([self.center, self.external])
+        self.contacts = Contacts(contacts)
+
+    def add_filler(self, name: str, where: list[directions_boundary_cyl], condition: Condition | None = None):
+        for i in where:
+            if i == 'XY':
+                self.external.add_filler(name, 'Y1', condition)
+            else:
+                i: Literal['Z', 'Z0', 'Z1']
+                self.center.add_filler(name, i, condition)
+                self.external.add_filler(name, i, condition)
+
+    def add_corrector(self, name: str, where: list[directions_boundary_cyl], condition: Condition | None = None):
+        for i in where:
+            if i == 'XY':
+                self.external.add_corrector(name, 'Y1', condition)
+            else:
+                i: Literal['Z', 'Z0', 'Z1']
+                self.center.add_corrector(name, i, condition)
+                self.external.add_corrector(name, i, condition)
